@@ -5,6 +5,7 @@
   "engines": {
     "node": ">=20.9.0"
   },
+  "packageManager": "npm@10.9.2",
   "scripts": {
     "dev": "next dev --webpack",
     "dev:turbo": "next dev",
