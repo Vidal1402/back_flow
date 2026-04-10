@@ -14,7 +14,7 @@ const items = [
 
 export function Consultoria() {
   return (
-    <section className={sectionDark}>
+    <section id="consultoria" className={sectionDark}>
       <div className={cn(container, "relative z-10")}>
         <SectionHeading
           variant="dark"
@@ -28,13 +28,16 @@ export function Consultoria() {
           className="mb-10 max-w-2xl md:mb-12"
         />
 
-        <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+        <ul className="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-4">
           {items.map(({ icon: Icon, text }) => (
-            <li key={text} className={cn(cardMuted, "flex gap-4 p-5 transition-colors hover:border-slate-600/60")}>
+            <li
+              key={text}
+              className={cn(cardMuted, "flex min-w-0 gap-4 p-5 transition-colors hover:border-slate-600/60")}
+            >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-[#4ADE80]">
                 <Icon className="h-5 w-5" strokeWidth={2} />
               </span>
-              <p className="text-[15px] leading-relaxed text-slate-300">{text}</p>
+              <p className="min-w-0 text-[15px] leading-relaxed text-slate-300">{text}</p>
             </li>
           ))}
         </ul>

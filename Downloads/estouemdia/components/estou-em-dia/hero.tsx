@@ -1,13 +1,6 @@
 import Image from "next/image"
-import { Poppins } from "next/font/google"
 import { MessageCircle, ArrowRight } from "lucide-react"
 import { HeroNav } from "@/components/estou-em-dia/hero-nav"
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  display: "swap",
-})
 
 const WA = "https://wa.me/5512991435465"
 
@@ -15,7 +8,7 @@ export function Hero() {
   return (
     <section
       id="hero"
-      className={`${poppins.className} relative flex min-h-svh w-full flex-col overflow-x-clip bg-[#f4f4f4]`}
+      className="relative flex min-h-svh w-full min-w-0 max-w-[100vw] flex-col overflow-x-clip bg-[#f4f4f4]"
       aria-label="Apresentação principal"
     >
       {/* Fundo refinado */}
@@ -39,9 +32,9 @@ export function Hero() {
           />
         </div>
 
-        <div className="relative z-20 mx-auto grid min-h-full w-full max-w-[1320px] grid-cols-1 grid-rows-[auto_1fr] items-stretch gap-8 px-5 pt-8 pb-10 sm:gap-10 sm:px-6 sm:pt-9 sm:pb-12 md:grid-cols-[minmax(0,46%)_minmax(0,54%)] md:grid-rows-1 md:gap-0 md:px-6 md:pt-7 md:pb-8 lg:px-8 lg:pt-8 lg:pb-10 xl:px-10 xl:pt-10 xl:pb-12">
-          <div className="flex min-h-0 min-w-0 flex-col justify-start md:min-h-full md:pb-10 md:pl-6 md:pr-6 md:pt-4 lg:pb-14 lg:pl-8 lg:pr-10 lg:pt-5 xl:pl-12 xl:pt-6">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#1f47dd]/15 bg-white/70 px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#3d5cad] shadow-sm backdrop-blur-sm sm:px-4 sm:text-[12px]">
+        <div className="relative z-20 mx-auto grid min-h-full w-full min-w-0 max-w-[1320px] grid-cols-1 grid-rows-[auto_1fr] items-stretch gap-8 px-4 pt-8 pb-10 sm:gap-10 sm:px-6 sm:pt-9 sm:pb-12 md:grid-cols-[minmax(0,46%)_minmax(0,54%)] md:grid-rows-1 md:gap-0 md:px-6 md:pt-7 md:pb-8 lg:px-8 lg:pt-8 lg:pb-10 xl:px-10 xl:pt-10 xl:pb-12">
+          <div className="flex min-h-0 min-w-0 flex-col items-center text-center md:items-start md:text-left md:justify-start md:min-h-full md:pb-10 md:pl-6 md:pr-6 md:pt-4 lg:pb-14 lg:pl-8 lg:pr-10 lg:pt-5 xl:pl-12 xl:pt-6">
+            <div className="inline-flex w-fit max-w-full items-center gap-2 rounded-full border border-[#1f47dd]/15 bg-white/70 px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#3d5cad] shadow-sm backdrop-blur-sm sm:px-4 sm:text-[12px]">
               <svg
                 viewBox="0 0 24 24"
                 className="size-[14px] shrink-0 text-[#1f47dd] sm:size-[15px]"
@@ -56,15 +49,15 @@ export function Hero() {
               <span>De pessoas para pessoas</span>
             </div>
 
-            <h1 className="mb-5 mt-5 max-w-[38rem] text-balance text-[clamp(2.25rem,5vw,3.75rem)] font-bold leading-[1.05] tracking-[-0.03em] text-[#10205a] sm:mb-6 sm:mt-6">
+            <h1 className="mb-5 mt-5 max-w-[38rem] text-balance text-[clamp(2.25rem,5vw,3.75rem)] font-bold leading-[1.05] tracking-[-0.03em] text-[#10205a] sm:mb-6 sm:mt-6 md:mx-0">
               Você em dia para{" "}
               <span className="bg-gradient-to-r from-[#1f47dd] to-[#2563eb] bg-clip-text text-transparent">
                 encontrar oportunidades financeiras
               </span>
             </h1>
 
-            <p className="m-0 flex max-w-[28rem] items-start gap-3 text-[clamp(1.125rem,2.1vw,1.625rem)] leading-[1.35] text-[#1e2c5a]">
-              <span className="mt-1 flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#1f47dd]/10 sm:size-11">
+            <p className="m-0 flex max-w-[28rem] flex-col items-center gap-3 text-[clamp(1.125rem,2.1vw,1.625rem)] leading-[1.35] text-[#1e2c5a] sm:flex-row sm:items-start md:mx-0">
+              <span className="mt-0 flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#1f47dd]/10 sm:mt-1 sm:size-11">
                 <svg
                   viewBox="0 0 24 24"
                   className="size-5 text-[#1f47dd] sm:size-6"
@@ -82,7 +75,7 @@ export function Hero() {
               </span>
             </p>
 
-            <div className="mt-10 w-full max-w-xl sm:mt-12">
+            <div className="mt-10 flex w-full max-w-xl justify-center sm:mt-12 md:justify-start">
               <a
                 href={WA}
                 target="_blank"

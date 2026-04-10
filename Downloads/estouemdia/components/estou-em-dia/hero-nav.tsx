@@ -64,7 +64,7 @@ export function HeroNav() {
   }, [])
 
   return (
-    <header className="sticky top-0 z-50 w-full shrink-0 border-b border-slate-800/80 bg-[#0F172A]">
+    <header className="sticky top-0 z-50 w-full max-w-[100vw] shrink-0 overflow-x-hidden border-b border-slate-800/80 bg-[#0F172A]">
       <div className="mx-auto flex h-14 w-full max-w-[1200px] items-center justify-between gap-4 px-4 sm:h-16 sm:px-6 lg:px-8">
         <Link
           href="/"

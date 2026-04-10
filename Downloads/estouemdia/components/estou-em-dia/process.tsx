@@ -1,55 +1,42 @@
 "use client"
 
-import { Search, TrendingUp, FileText, Scale, CreditCard, Landmark } from "lucide-react"
+import { Landmark } from "lucide-react"
 import { SectionHeading } from "@/components/estou-em-dia/section-heading"
 import { cn } from "@/lib/utils"
-import { cardMuted, containerWide, sectionDark } from "@/lib/section-ui"
+import { containerWide } from "@/lib/section-ui"
+
+const steps = [
+  {
+    title: "Consulta",
+    description: "Olhamos seu CPF, o que consta nos órgãos e o que dá pra atacar primeiro.",
+  },
+  {
+    title: "Nome nos cadastros",
+    description: "Foco em tirar o que não deveria estar ali e melhorar como você aparece.",
+  },
+  {
+    title: "Dívidas em dia",
+    description: "Negociação, parcelamento e baixa quando o acordo fecha.",
+  },
+  {
+    title: "Parte jurídica",
+    description: "Só entra advogado quando o caso pede — a gente te explica antes.",
+  },
+  {
+    title: "Crédito de novo",
+    description: "Objetivo: você voltar a pedir empréstimo ou cartão sem susto.",
+  },
+] as const
 
 export function Process() {
-  const steps = [
-    {
-      icon: Search,
-      title: "Consulta",
-      description: "Olhamos seu CPF, o que consta nos órgãos e o que dá pra atacar primeiro.",
-      accent: "blue" as const,
-    },
-    {
-      icon: TrendingUp,
-      title: "Nome nos cadastros",
-      description: "Foco em tirar o que não deveria estar ali e melhorar como você aparece.",
-      accent: "green" as const,
-    },
-    {
-      icon: FileText,
-      title: "Dívidas em dia",
-      description: "Negociação, parcelamento e baixa quando o acordo fecha.",
-      accent: "blue" as const,
-    },
-    {
-      icon: Scale,
-      title: "Parte jurídica",
-      description: "Só entra advogado quando o caso pede — a gente te explica antes.",
-      accent: "green" as const,
-    },
-    {
-      icon: CreditCard,
-      title: "Crédito de novo",
-      description: "Objetivo: você voltar a pedir empréstimo ou cartão sem susto.",
-      accent: "blue" as const,
-    },
-  ]
-
-  const iconWrap = (accent: "blue" | "green") =>
-    cn(
-      "mb-4 flex h-10 w-10 items-center justify-center rounded-lg text-white",
-      accent === "green" ? "bg-emerald-600" : "bg-blue-600",
-    )
-
   return (
-    <section id="processo" className={sectionDark}>
+    <section
+      id="processo"
+      className="relative scroll-mt-24 overflow-x-clip border-t border-white/15 bg-[#1a46e3] px-4 py-20 md:scroll-mt-28 md:px-6 md:py-24 lg:py-28"
+    >
       <div className={cn(containerWide, "relative z-10")}>
         <SectionHeading
-          variant="dark"
+          variant="blue"
           align="center"
           eyebrow="Como funciona"
           title={
@@ -59,52 +46,74 @@ export function Process() {
             </>
           }
           description="Nada de promessa milagrosa: a gente segue o que a lei permite e te mantém informado em cada etapa."
-          className="mb-14 max-w-2xl md:mb-16"
+          className="mb-12 max-w-2xl md:mb-14"
         />
 
-        <div className="mb-16 hidden gap-4 md:grid md:grid-cols-2 lg:mb-20 lg:grid-cols-5">
-          {steps.map((step, index) => (
-            <div key={step.title} className={cn(cardMuted, "flex flex-col p-5")}>
-              <div className={iconWrap(step.accent)}>
-                <step.icon className="h-5 w-5" strokeWidth={2} />
-              </div>
-              <h3 className="text-[0.95rem] font-semibold leading-snug text-white">{step.title}</h3>
-              <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-400">{step.description}</p>
-              <span className="mt-4 text-xs font-medium tabular-nums text-slate-500">{index + 1}/5</span>
-            </div>
-          ))}
-        </div>
+        <ul className="mx-auto grid max-w-6xl list-none grid-cols-1 items-stretch gap-5 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5 lg:grid-cols-6 lg:gap-x-6 lg:gap-y-6">
+          {steps.map((step, index) => {
+            const n = index + 1
+            const isLast = index === steps.length - 1
+            return (
+              <li
+                key={step.title}
+                className={cn(
+                  "flex min-h-0 min-w-0",
+                  index <= 2 && "lg:col-span-2",
+                  index === 3 && "lg:col-span-2 lg:col-start-2",
+                  index === 4 && "sm:col-span-2 lg:col-span-2 lg:col-start-4",
+                  isLast && "sm:justify-center",
+                )}
+              >
+                <article
+                  className={cn(
+                    "relative mx-auto flex h-full w-full max-w-lg flex-col rounded-2xl border border-white/25 bg-white p-5 shadow-lg shadow-black/15 ring-1 ring-white/40 sm:max-w-none sm:mx-0 sm:p-6",
+                    isLast && "sm:mx-auto sm:max-w-lg lg:mx-0 lg:max-w-none",
+                  )}
+                >
+                  <div className="flex flex-1 items-start gap-4">
+                    <span
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4ADE80] text-sm font-bold text-white shadow-sm"
+                      aria-hidden
+                    >
+                      {n}
+                    </span>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#3d5cad]">
+                        Etapa {n} de {steps.length}
+                      </p>
+                      <h3 className="mt-2 text-lg font-bold leading-snug text-[#0F172A] sm:text-[1.125rem]">
+                        {step.title}
+                      </h3>
+                      <p className="mt-2 text-sm leading-relaxed text-[#1e2c5a]/85 sm:text-[15px]">
+                        {step.description}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              </li>
+            )
+          })}
+        </ul>
 
-        <div className="relative mb-16 space-y-4 md:hidden">
-          <div className="absolute bottom-2 left-[1.125rem] top-2 w-px bg-slate-600" aria-hidden />
-          {steps.map((step, index) => (
-            <div key={step.title} className="relative flex gap-4">
-              <div className={cn(iconWrap(step.accent), "relative z-10 mb-0 h-9 w-9 shrink-0 rounded-full")}>
-                <step.icon className="h-4 w-4" strokeWidth={2} />
+        <div className="mx-auto mt-14 max-w-3xl border-t border-white/10 pt-10 md:mt-16 md:pt-12 lg:max-w-none lg:px-2">
+          <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:items-start md:gap-12 lg:gap-16">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <Landmark className="size-4 shrink-0 opacity-90" strokeWidth={1.75} aria-hidden />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-400/95 sm:text-xs">
+                  Cadastros e protestos
+                </p>
               </div>
-              <div className={cn(cardMuted, "min-w-0 flex-1 p-4")}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-white">{step.title}</h3>
-                  <span className="text-xs text-slate-500">{index + 1}/5</span>
-                </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{step.description}</p>
-              </div>
+              <h3 className="mt-4 text-pretty text-xl font-semibold leading-[1.2] tracking-tight text-white sm:text-2xl md:text-[1.65rem] lg:text-[1.85rem]">
+                Quando regulariza, isso aparece onde o banco{" "}
+                <span className="text-[#4ADE80]">realmente olha</span>
+              </h3>
             </div>
-          ))}
-        </div>
-
-        <div className={cn(cardMuted, "p-8 text-center md:p-10")}>
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-700/80 text-[#4ADE80]">
-            <Landmark className="h-6 w-6" strokeWidth={1.75} />
+            <p className="min-w-0 text-[15px] leading-relaxed text-slate-400 md:pt-7 md:text-base lg:text-[1.05rem] lg:leading-relaxed">
+              SPC, Serasa, cartório de protesto — o histórico precisa bater com a situação de hoje, não com o que ficou
+              para trás.
+            </p>
           </div>
-          <p className="mb-2 text-xs font-medium uppercase tracking-widest text-[#4ADE80]">Cadastros e protestos</p>
-          <h3 className="text-xl font-bold leading-snug text-white md:text-2xl">
-            Quando regulariza, isso aparece onde o banco <span className="text-[#4ADE80]">realmente olha</span>
-          </h3>
-          <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-slate-400 md:text-base">
-            SPC, Serasa, cartório de protesto — o histórico precisa bater com a situação de hoje, não com o que ficou para
-            trás.
-          </p>
         </div>
       </div>
     </section>

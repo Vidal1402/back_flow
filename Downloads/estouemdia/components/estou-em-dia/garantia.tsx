@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 
 export function Garantia() {
   return (
-    <section className={sectionDark}>
+    <section id="garantia" className={sectionDark}>
       <div className={container}>
         <SectionHeading
           variant="dark"

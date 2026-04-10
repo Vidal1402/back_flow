@@ -25,7 +25,7 @@ export function SectionHeading({
       className={cn(
         "w-full max-w-3xl",
         align === "center" && "mx-auto text-center",
-        align === "left" && "mx-0 text-left",
+        align === "left" && "mx-auto w-full text-center md:mx-0 md:text-left",
         className,
       )}
     >
@@ -53,6 +53,7 @@ export function SectionHeading({
           className={cn(
             "mt-4 max-w-2xl text-base leading-relaxed md:text-lg",
             align === "center" && "mx-auto",
+            align === "left" && "mx-auto md:mx-0",
             variant === "light" && "text-slate-600",
             variant === "dark" && "text-slate-400",
             variant === "blue" && "text-white/85",
