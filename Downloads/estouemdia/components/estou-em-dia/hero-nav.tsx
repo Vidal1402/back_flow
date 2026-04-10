@@ -5,15 +5,10 @@ import Image from "next/image"
 import { Menu, X, MessageCircle } from "lucide-react"
 import { useEffect, useState } from "react"
 import { BRAND_LOGO_URL } from "@/components/estou-em-dia/brand-logo"
+import { landingNavLinks } from "@/lib/landing-nav-links"
 import { cn } from "@/lib/utils"
 
-const links = [
-  { label: "Home", href: "#hero" },
-  { label: "Sobre", href: "#beneficios" },
-  { label: "Como funciona", href: "#processo" },
-  { label: "Cases", href: "#cases" },
-  { label: "Contato", href: "#contato" },
-] as const
+const links = landingNavLinks
 
 const WA = "https://wa.me/5512991435465"
 
@@ -64,7 +59,7 @@ export function HeroNav() {
   }, [])
 
   return (
-    <header className="sticky top-0 z-50 w-full max-w-[100vw] shrink-0 overflow-x-hidden border-b border-slate-800/80 bg-[#0F172A]">
+    <header className="fixed inset-x-0 top-0 z-50 w-full max-w-[100vw] overflow-x-hidden border-b border-slate-800/80 bg-[#0F172A] shadow-sm shadow-black/10">
       <div className="mx-auto flex h-14 w-full max-w-[1200px] items-center justify-between gap-4 px-4 sm:h-16 sm:px-6 lg:px-8">
         <Link
           href="/"

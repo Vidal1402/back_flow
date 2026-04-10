@@ -8,7 +8,7 @@ export function Hero() {
   return (
     <section
       id="hero"
-      className="relative flex min-h-svh w-full min-w-0 max-w-[100vw] flex-col overflow-x-clip bg-[#f4f4f4]"
+      className="relative flex min-h-svh w-full min-w-0 max-w-[100vw] flex-col overflow-x-clip bg-[#f4f4f4] pt-14 sm:pt-16"
       aria-label="Apresentação principal"
     >
       {/* Fundo refinado */}

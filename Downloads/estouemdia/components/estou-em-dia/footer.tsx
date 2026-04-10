@@ -1,15 +1,7 @@
 import Link from "next/link"
 import { Instagram } from "lucide-react"
 import { BrandLogo } from "@/components/estou-em-dia/brand-logo"
-
-const quickLinks = [
-  { label: "Benefícios", href: "#beneficios" },
-  { label: "Como funciona", href: "#processo" },
-  { label: "Transparência", href: "#cases" },
-  { label: "Consultoria", href: "#consultoria" },
-  { label: "Garantia", href: "#garantia" },
-  { label: "Contato", href: "#contato" },
-] as const
+import { landingNavLinks } from "@/lib/landing-nav-links"
 
 export function Footer() {
   return (
@@ -26,7 +18,7 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-white">Navegação</h4>
             <nav className="mt-4 flex flex-col gap-2.5" aria-label="Rodapé">
-              {quickLinks.map(({ label, href }) => (
+              {landingNavLinks.map(({ label, href }) => (
                 <Link
                   key={href}
                   href={href}
