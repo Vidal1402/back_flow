@@ -36,6 +36,25 @@ final class AuthMiddleware
             Response::json(['error' => 'unauthorized', 'message' => $e->getMessage()], 401);
         }
 
+        $lookupDbRaw = mb_strtolower(trim((string) (Env::get('AUTH_LOOKUP_USER_DB', 'false') ?? 'false')));
+        $lookupDb = in_array($lookupDbRaw, ['1', 'true', 'yes', 'on'], true);
+        if (!$lookupDb) {
+            $userId = (int) ($payload['sub'] ?? 0);
+            if ($userId <= 0) {
+                Response::json(['error' => 'unauthorized', 'message' => 'Token inválido'], 401);
+            }
+
+            return [
+                'user' => [
+                    'id' => $userId,
+                    'name' => (string) ($payload['name'] ?? ''),
+                    'email' => (string) ($payload['email'] ?? ''),
+                    'role' => (string) ($payload['role'] ?? ''),
+                    'organization_id' => (int) ($payload['org'] ?? 1),
+                ],
+            ];
+        }
+
         $userId = (int) ($payload['sub'] ?? 0);
         $user = $this->users->findById($userId);
         if (!$user) {
