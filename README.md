@@ -47,8 +47,10 @@ O Railpack **não oferece PHP 8.1** — use `"php": "^8.2"` ou superior no `comp
 ### Variáveis no Railway
 
 - `MONGODB_URI`, `MONGODB_DATABASE`, `APP_KEY`, `JWT_TTL`, `APP_ENV`, `APP_URL`
-- Opcional mas recomendado: **`RAILPACK_PHP_ROOT_DIR=/app/public`** (FrankenPHP serve a pasta `public/`).
-- O Railpack escuta em **`{$PORT}`** (o Railway define `PORT`); não fixes porta manualmente.
+- **`RAILPACK_PHP_ROOT_DIR=/app/public`** (recomendado): FrankenPHP usa a pasta `public/`.
+- **`SERVER_NAME=:${{PORT}}`** (muitas vezes **necessário**): a imagem Railpack define `SERVER_NAME=:80` no build, mas o Railway encaminha o tráfego para a porta em **`PORT`** (ex.: 8080). Sem esta variável, o Caddy pode ficar à escuta na **80** e o proxy não encontra serviço na **PORT** → *Application failed to respond*. No painel Railway → Variables → novo valor `SERVER_NAME` = `:${{PORT}}` (sintaxe de referência do Railway).
+
+O Railway injeta **`PORT`** automaticamente; não defines outra porta à mão salvo saberes o que estás a fazer.
 
 ### MongoDB Atlas
 
@@ -58,9 +60,10 @@ Em **Network Access**, permite IPs de saída do Railway (ex.: **`0.0.0.0/0`** pa
 
 Mensagem do **proxy** do Railway: não recebeu resposta HTTP a tempo ou a ligação falhou.
 
-1. **Confirma que o último deploy inclui** `index.php` na raiz (ver acima) **ou** define `RAILPACK_PHP_ROOT_DIR=/app/public`.
-2. **Logs do deploy**: erros PHP (vendor em falta, `MONGODB_URI` vazia, fatal no bootstrap).
-3. **`GET /`** deve responder JSON rápido **sem** MongoDB; **`GET /api/health`** precisa de MongoDB — se só `/api/health` falhar, verifica Atlas e `MONGODB_URI`.
-4. Os avisos nos logs (HTTP/2 sem TLS, Caddyfile `fmt`, HTTPS desativado **dentro** do contentor) são **normais**; o Railway termina TLS na frente.
+1. **`SERVER_NAME=:${{PORT}}`** (ver secção acima) — causa mais comum com FrankenPHP/Railpack quando os logs dizem "server running" mas o site não responde.
+2. **`RAILPACK_PHP_ROOT_DIR=/app/public`** ou **`index.php`** na raiz do repositório (já incluído neste projeto).
+3. **MongoDB Atlas → Network Access** (ex.: `0.0.0.0/0`) e **`MONGODB_URI`** correta.
+4. **Logs**: erros PHP (vendor em falta, fatal no bootstrap). **`GET /`** deve responder JSON **sem** MongoDB; **`GET /api/health`** testa MongoDB.
+5. Avisos nos logs (HTTP/2/3 sem TLS, Caddyfile `fmt`, HTTPS off **no contentor**) são **normais**.
 
-Os logs que mostraste ("FrankenPHP started", "server running") indicam que o processo **subiu**; o problema costuma ser **rota/porta/healthcheck**, **timeout para o MongoDB**, ou **crash só ao processar pedidos**.
+Os logs "FrankenPHP started" / "server running" só dizem que o **processo** arrancou; se a porta não coincidir com **`PORT`**, o utilizador vê na mesma *Application failed to respond*.
