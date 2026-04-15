@@ -13,7 +13,10 @@ Backend MVP em PHP nativo com padrão em camadas:
 1. Copie `.env.example` para `.env`.
 2. Configure `MONGODB_URI`, `APP_KEY`, etc.
 3. `composer install`
-4. `php -S localhost:8000 -t public`
+4. Servidor (router para `/api/*`):
+   ```bash
+   php -S localhost:8000 -t public public/index.php
+   ```
 
 Variáveis: ver `.env.example`.
 
@@ -38,41 +41,33 @@ Variáveis: ver `.env.example`.
 - `src/Repositories` acesso a dados.
 - `src/Middleware` proteção de rotas.
 - `database/migrations/001_init.sql` referência legada (Postgres).
-- `index.php` na **raiz** do repo inclui `public/index.php` (útil quando o document root no contentor é `/app`).
+- `index.php` na raiz (opcional) inclui `public/index.php`.
+- **`Dockerfile`** — deploy no Railway com PHP embutido em `0.0.0.0:$PORT` (sem Caddy/FrankenPHP).
 
-## Deploy no Railway (Railpack)
+## Deploy no Railway
 
-O Railpack **não oferece PHP 8.1** — use `"php": "^8.2"` ou superior no `composer.json`.
+O projeto usa **`Dockerfile`** + `railway.json` com `"builder": "DOCKERFILE"` — o processo escuta **sempre** em **`0.0.0.0:${PORT}`**, que é o que o Railway espera. Isto evita os 502 causados por FrankenPHP/Caddy/Railpack com `SERVER_NAME` e `PORT` desalinhados.
 
-### Variáveis no Railway
+### Variáveis
 
 - `MONGODB_URI`, `MONGODB_DATABASE`, `APP_KEY`, `JWT_TTL`, `APP_ENV`, `APP_URL`
-- **`RAILPACK_PHP_ROOT_DIR=/app/public`** (recomendado): FrankenPHP usa a pasta `public/`.
-- **`SERVER_NAME=:${{PORT}}`** (muitas vezes **necessário**): a imagem Railpack define `SERVER_NAME=:80` no build, mas o Railway encaminha o tráfego para a porta em **`PORT`** (ex.: 8080). Sem esta variável, o Caddy pode ficar à escuta na **80** e o proxy não encontra serviço na **PORT** → *Application failed to respond*. No painel Railway → Variables → novo valor `SERVER_NAME` = `:${{PORT}}` (sintaxe de referência do Railway).
+- **Não** precisas de `RAILPACK_PHP_ROOT_DIR` nem `SERVER_NAME` com esta imagem.
 
-O Railway injeta **`PORT`** automaticamente; não defines outra porta à mão salvo saberes o que estás a fazer.
+### Rede (Target port)
 
-### Rede pública (502 Bad Gateway)
-
-No painel **Networking → Public Networking → Target port**:
-
-- O valor tem de ser **o mesmo** que a variável **`PORT`** do serviço (vê em **Variables**; costuma ser **8000** ou **8080** consoante o projeto).
-- Se definires **Target port = 8000** mas o contentor só escuta na **80** (comportamento Railpack sem correcção), o proxy devolve **502**.
-- Este repositório define **`startCommand`** em `railway.json` para fazer `SERVER_NAME=:$PORT` antes de `/start-container.sh`, alinhando o Caddy com a **`PORT`** do Railway.
-- Alternativa no painel: variável **`SERVER_NAME`** = `:${{PORT}}` (referência ao `PORT` do mesmo serviço).
+Em **Networking → Public Networking**, o **Target port** tem de ser **igual** ao **`PORT`** que o Railway mostra nas **Variables** do serviço (muitas vezes **8080**). Se estiveres a apontar para **8000** mas `PORT=8080`, continuas a ter erros.
 
 ### MongoDB Atlas
 
-Em **Network Access**, permite IPs de saída do Railway (ex.: **`0.0.0.0/0`** para testes) — senão a app pode ficar à espera da base e o proxy dá timeout.
+**Network Access:** permite **`0.0.0.0/0`** (ou regra adequada) para o cluster aceitar ligações do Railway.
 
-### "Application failed to respond"
+### Healthcheck
 
-Mensagem do **proxy** do Railway: não recebeu resposta HTTP a tempo ou a ligação falhou.
+`railway.json` define `healthcheckPath: "/"` — o `GET /` responde JSON sem MongoDB.
 
-1. **`SERVER_NAME=:${{PORT}}`** (ver secção acima) — causa mais comum com FrankenPHP/Railpack quando os logs dizem "server running" mas o site não responde.
-2. **`RAILPACK_PHP_ROOT_DIR=/app/public`** ou **`index.php`** na raiz do repositório (já incluído neste projeto).
-3. **MongoDB Atlas → Network Access** (ex.: `0.0.0.0/0`) e **`MONGODB_URI`** correta.
-4. **Logs**: erros PHP (vendor em falta, fatal no bootstrap). **`GET /`** deve responder JSON **sem** MongoDB; **`GET /api/health`** testa MongoDB.
-5. Avisos nos logs (HTTP/2/3 sem TLS, Caddyfile `fmt`, HTTPS off **no contentor**) são **normais**.
+### Build
 
-Os logs "FrankenPHP started" / "server running" só dizem que o **processo** arrancou; se a porta não coincidir com **`PORT`**, o utilizador vê na mesma *Application failed to respond*.
+- `composer install` corre na fase de build (stage `vendor`).
+- Extensão **mongodb** instalada via PECL na imagem `php:8.4-cli-bookworm`.
+
+Após `git push`, o Railway deve detetar o **Dockerfile** automaticamente (confirmar no painel **Build → Builder** que está a usar Dockerfile e não Railpack).

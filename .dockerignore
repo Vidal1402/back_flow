@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+.env.*
+vendor
+node_modules
+*.md
+composer.phar
+cacert.pem
+.cursor
+terminals
