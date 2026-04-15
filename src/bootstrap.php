@@ -9,11 +9,10 @@ use App\Controllers\InvoiceController;
 use App\Controllers\TaskController;
 use App\Core\Database;
 use App\Core\Env;
-use App\Core\MongoSchema;
+use App\Core\Migrator;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Router;
-use App\Core\Sequence;
 use App\Middleware\AuthMiddleware;
 use App\Repositories\ClientRepository;
 use App\Repositories\InvoiceRepository;
@@ -22,18 +21,13 @@ use App\Repositories\UserRepository;
 
 Env::load(dirname(__DIR__) . '/.env');
 
-$db = Database::database();
-$ensureIndexesFlag = mb_strtolower(trim((string) (Env::get('MONGO_ENSURE_INDEXES', 'false') ?? 'false')));
-if (in_array($ensureIndexesFlag, ['1', 'true', 'yes', 'on'], true)) {
-    MongoSchema::ensureIndexes($db);
-}
+$pdo = Database::connection();
+Migrator::run($pdo, dirname(__DIR__) . '/database/migrations');
 
-$sequence = new Sequence($db);
-
-$users = new UserRepository($db, $sequence);
-$clients = new ClientRepository($db, $sequence);
-$tasks = new TaskRepository($db, $sequence);
-$invoices = new InvoiceRepository($db);
+$users = new UserRepository($pdo);
+$clients = new ClientRepository($pdo);
+$tasks = new TaskRepository($pdo);
+$invoices = new InvoiceRepository($pdo);
 
 $authController = new AuthController($users);
 $clientController = new ClientController($clients);
@@ -67,5 +61,6 @@ $router->add('POST', '/api/tasks', fn(Request $request, array $params, array $co
 $router->add('PATCH', '/api/tasks/{id}/status', fn(Request $request, array $params, array $context) => $taskController->updateStatus($request, $params, $context), [$authMiddleware]);
 
 $router->add('GET', '/api/invoices', fn(Request $request, array $params, array $context) => $invoiceController->index($context), [$authMiddleware]);
+$router->add('POST', '/api/invoices', fn(Request $request, array $params, array $context) => $invoiceController->store($request, $context), [$authMiddleware, $adminOnly]);
 
 return $router;

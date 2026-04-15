@@ -44,37 +44,33 @@ final class AuthController
             Response::json(['error' => 'validation_error', 'message' => 'email e password são obrigatórios'], 422);
         }
 
-        // Fallback determinístico para primeiro acesso:
-        // se as credenciais baterem com ADMIN_EMAIL/ADMIN_PASSWORD, garante o admin no banco.
-        $normalizedEmail = mb_strtolower($email);
-        $adminEmail = mb_strtolower(trim((string) (Env::get('ADMIN_EMAIL', '') ?? '')));
-        $adminPassword = trim((string) (Env::get('ADMIN_PASSWORD', '') ?? ''));
-        if ($adminEmail !== '' && $adminPassword !== '' && $normalizedEmail === $adminEmail && trim($password) === $adminPassword) {
-            $adminName = trim((string) (Env::get('ADMIN_NAME', 'Administrador') ?? 'Administrador'));
-            $adminId = $this->users->ensureAdminCredentials(
-                $adminEmail,
-                $adminName !== '' ? $adminName : 'Administrador',
-                $adminPassword,
-                1
-            );
-            $ensuredAdmin = $this->users->findById($adminId);
-            if (!$ensuredAdmin) {
-                Response::json(['error' => 'server_error', 'message' => 'Falha ao carregar admin bootstrap'], 500);
-            }
-            $this->respondWithToken($ensuredAdmin);
-        }
-
         $user = $this->users->findByEmail($email);
-        if (!$user) {
-            $this->bootstrapAdminOnFirstLogin($email, $password);
-            $user = $this->users->findByEmail($email);
-        }
-
         if (!$user || !password_verify($password, (string) $user['password_hash'])) {
             Response::json(['error' => 'unauthorized', 'message' => 'Credenciais inválidas'], 401);
         }
 
-        $this->respondWithToken($user);
+        $ttl = (int) (Env::get('JWT_TTL', '3600') ?? '3600');
+        $payload = [
+            'sub' => (int) $user['id'],
+            'role' => $user['role'],
+            'org' => (int) $user['organization_id'],
+            'iat' => time(),
+            'exp' => time() + $ttl,
+        ];
+
+        $token = JWT::encode($payload, (string) Env::get('APP_KEY', ''));
+
+        Response::json([
+            'token' => $token,
+            'expires_in' => $ttl,
+            'user' => [
+                'id' => (int) $user['id'],
+                'name' => $user['name'],
+                'email' => $user['email'],
+                'role' => $user['role'],
+                'organization_id' => (int) $user['organization_id'],
+            ],
+        ]);
     }
 
     public function me(array $context): void
@@ -97,8 +93,8 @@ final class AuthController
             Response::json(['error' => 'validation_error', 'message' => 'email inválido'], 422);
         }
 
-        if (!in_array($role, ['admin', 'colaborador'], true)) {
-            Response::json(['error' => 'validation_error', 'message' => 'role deve ser admin ou colaborador'], 422);
+        if (!in_array($role, ['admin', 'colaborador', 'cliente'], true)) {
+            Response::json(['error' => 'validation_error', 'message' => 'role deve ser admin, colaborador ou cliente'], 422);
         }
 
         if ($this->users->findByEmail($email)) {
@@ -114,68 +110,5 @@ final class AuthController
         }
 
         return $user;
-    }
-
-    private function bootstrapAdminOnFirstLogin(string $email, string $password): void
-    {
-        $adminEmail = trim((string) (Env::get('ADMIN_EMAIL', '') ?? ''));
-        $adminPassword = (string) (Env::get('ADMIN_PASSWORD', '') ?? '');
-        $adminName = trim((string) (Env::get('ADMIN_NAME', 'Administrador') ?? 'Administrador'));
-
-        if ($adminEmail === '' || $adminPassword === '') {
-            return;
-        }
-
-        if (mb_strtolower($email) !== mb_strtolower($adminEmail)) {
-            return;
-        }
-
-        if ($password !== $adminPassword) {
-            return;
-        }
-
-        if ($this->users->findByEmail($adminEmail)) {
-            return;
-        }
-
-        $hash = password_hash($adminPassword, PASSWORD_BCRYPT);
-        $this->users->create(
-            $adminName !== '' ? $adminName : 'Administrador',
-            $adminEmail,
-            $hash,
-            'admin',
-            1
-        );
-    }
-
-    /**
-     * @param array<string, mixed> $user
-     */
-    private function respondWithToken(array $user): void
-    {
-        $ttl = (int) (Env::get('JWT_TTL', '3600') ?? '3600');
-        $payload = [
-            'sub' => (int) $user['id'],
-            'role' => $user['role'],
-            'org' => (int) $user['organization_id'],
-            'name' => (string) ($user['name'] ?? ''),
-            'email' => (string) ($user['email'] ?? ''),
-            'iat' => time(),
-            'exp' => time() + $ttl,
-        ];
-
-        $token = JWT::encode($payload, (string) Env::get('APP_KEY', ''));
-
-        Response::json([
-            'token' => $token,
-            'expires_in' => $ttl,
-            'user' => [
-                'id' => (int) $user['id'],
-                'name' => $user['name'],
-                'email' => $user['email'],
-                'role' => $user['role'],
-                'organization_id' => (int) $user['organization_id'],
-            ],
-        ]);
     }
 }

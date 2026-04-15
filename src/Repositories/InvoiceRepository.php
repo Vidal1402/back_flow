@@ -4,62 +4,42 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
-use App\Core\BsonUtil;
-use MongoDB\Database as MongoDatabase;
+use PDO;
 
 final class InvoiceRepository
 {
-    public function __construct(private readonly MongoDatabase $db)
+    public function __construct(private readonly PDO $pdo)
     {
     }
 
     public function allByOrganization(int $organizationId): array
     {
-        $cursor = $this->db->selectCollection('invoices')->find(
-            ['organization_id' => $organizationId],
-            ['sort' => ['_id' => -1]]
+        $stmt = $this->pdo->prepare(
+            'SELECT id, invoice_code, period, amount, due_date, status, method, paid_at, created_at
+             FROM invoices
+             WHERE organization_id = :org
+             ORDER BY id DESC'
         );
-
-        $rows = [];
-        foreach ($cursor as $doc) {
-            $rows[] = $this->toInvoiceRow($this->normalizeAssoc($doc));
-        }
-
-        return $rows;
+        $stmt->execute(['org' => $organizationId]);
+        return $stmt->fetchAll() ?: [];
     }
 
-    /**
-     * @param array<string, mixed> $doc
-     * @return array<string, mixed>
-     */
-    private function toInvoiceRow(array $doc): array
+    public function create(array $payload, int $organizationId): int
     {
-        $paidAt = $doc['paid_at'] ?? null;
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO invoices (invoice_code, period, amount, due_date, status, method, organization_id)
+             VALUES (:invoice_code, :period, :amount, :due_date, :status, :method, :organization_id)'
+        );
+        $stmt->execute([
+            'invoice_code' => $payload['invoice_code'],
+            'period' => $payload['period'],
+            'amount' => $payload['amount'],
+            'due_date' => $payload['due_date'],
+            'status' => $payload['status'] ?? 'Pendente',
+            'method' => $payload['method'] ?? 'Pix',
+            'organization_id' => $organizationId,
+        ]);
 
-        return [
-            'id' => (int) $doc['_id'],
-            'invoice_code' => (string) $doc['invoice_code'],
-            'period' => (string) $doc['period'],
-            'amount' => (float) $doc['amount'],
-            'due_date' => (string) $doc['due_date'],
-            'status' => (string) $doc['status'],
-            'method' => (string) $doc['method'],
-            'paid_at' => $paidAt !== null ? (BsonUtil::formatDate($paidAt) ?? null) : null,
-            'created_at' => BsonUtil::formatDate($doc['created_at'] ?? null) ?? '',
-        ];
-    }
-
-    /**
-     * @param iterable<mixed, mixed> $doc
-     * @return array<string, mixed>
-     */
-    private function normalizeAssoc(iterable $doc): array
-    {
-        $out = [];
-        foreach ($doc as $k => $v) {
-            $out[(string) $k] = $v;
-        }
-
-        return $out;
+        return (int) $this->pdo->lastInsertId();
     }
 }
