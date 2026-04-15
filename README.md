@@ -58,3 +58,9 @@ No painel do servico Railway, defina a variavel de ambiente:
 Isso aponta o document root para a pasta `public/` (onde esta o `index.php`). Sem isso, o servidor pode nao achar o front controller.
 
 Configure tambem `APP_KEY`, `JWT_TTL`, `DB_DSN`, `DB_USER`, `DB_PASS` nas variaveis do Railway.
+
+### "Application failed to respond" no Railway
+
+O health check costuma bater em `/` ou `/api/health`. Antes, o codigo conectava ao Postgres **antes** de qualquer resposta; se `DB_*` estivesse errado, ate o health falhava.
+
+Agora `GET /`, `GET /health` e `GET /api/health` respondem **sem banco**. Se a raiz voltar a responder mas as rotas `/api/*` derem erro, o problema esta nas variaveis `DB_*` ou na rede ate o Supabase.

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Core\Request;
+use App\Core\Response;
 
 $vendorAutoload = __DIR__ . '/../vendor/autoload.php';
 if (is_file($vendorAutoload)) {
@@ -21,7 +22,17 @@ if (is_file($vendorAutoload)) {
     });
 }
 
-$router = require __DIR__ . '/../src/bootstrap.php';
-
 $request = Request::capture();
+$path = rtrim($request->path, '/') ?: '/';
+
+// Health sem conexao com banco (Railway / load balancer / probes)
+if ($request->method === 'GET' && in_array($path, ['/', '/api/health', '/health'], true)) {
+    Response::json([
+        'status' => 'ok',
+        'service' => 'php-mvp-api',
+        'timestamp' => date(DATE_ATOM),
+    ]);
+}
+
+$router = require __DIR__ . '/../src/bootstrap.php';
 $router->dispatch($request);
