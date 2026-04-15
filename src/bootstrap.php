@@ -46,6 +46,25 @@ if ($bootstrapAdminEmail !== '' && $bootstrapAdminPassword !== '' && !$users->fi
     );
 }
 
+// Opcional: reset forçado de senha/admin para destravar acesso em produção.
+// Use ADMIN_FORCE_RESET_PASSWORD=true temporariamente; depois volte para false.
+$forceResetAdminPassword = strtolower((string) (Env::get('ADMIN_FORCE_RESET_PASSWORD', 'false') ?? 'false')) === 'true';
+if ($bootstrapAdminEmail !== '' && $bootstrapAdminPassword !== '' && $forceResetAdminPassword) {
+    $bootstrapAdminName = trim((string) (Env::get('ADMIN_NAME', 'Administrador') ?? 'Administrador'));
+    $db->selectCollection('users')->updateOne(
+        ['email' => mb_strtolower($bootstrapAdminEmail)],
+        [
+            '$set' => [
+                'name' => $bootstrapAdminName !== '' ? $bootstrapAdminName : 'Administrador',
+                'password_hash' => password_hash($bootstrapAdminPassword, PASSWORD_BCRYPT),
+                'role' => 'admin',
+                'organization_id' => 1,
+            ],
+        ],
+        ['upsert' => false]
+    );
+}
+
 $authController = new AuthController($users);
 $clientController = new ClientController($clients);
 $taskController = new TaskController($tasks);
