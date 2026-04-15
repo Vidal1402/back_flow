@@ -6,30 +6,16 @@ Backend MVP em PHP nativo com padrão em camadas:
 - Controllers
 - Repositories
 - Middleware JWT
-- MongoDB (driver oficial `mongodb/mongodb`)
+- MongoDB (`mongodb/mongodb`)
 
-## Executar local (MongoDB Atlas)
+## Executar local
 
 1. Copie `.env.example` para `.env`.
-2. Configure `MONGODB_URI` com a connection string do Atlas (e opcionalmente `MONGODB_DATABASE` se a URI não tiver o nome da base no path).
-3. Rode `composer install` (veja **Composer no Windows** abaixo se o comando não existir ou der erro de SSL).
-4. Rode `php -S localhost:8000 -t public`.
+2. Configure `MONGODB_URI`, `APP_KEY`, etc.
+3. `composer install`
+4. `php -S localhost:8000 -t public`
 
-### Composer no Windows
-
-- **Instalar globalmente (recomendado):** descarregue o instalador em [getcomposer.org/download](https://getcomposer.org/download/) e marque a opção para adicionar `composer` ao PATH. Reinicie o terminal.
-- **Só neste projeto:** na raiz do repo deve existir `composer.phar`. Use na pasta do projeto: `.\composer.bat install` (o script usa o PHP em `C:\xampp\php\php.exe` se existir; edite `composer.bat` se o teu PHP estiver outro sítio).
-- **Erro SSL (`curl error 60` / `certificate verify failed`) no Composer Setup ou no PHP:** comum com XAMPP + antivírus (inspeção HTTPS). Tenta: (1) desativar temporariamente a inspeção HTTPS no Avast ou exceção para `php.exe`; (2) `cacert.pem` atual em `C:\xampp\php\extras\ssl\cacert.pem` e `curl.cainfo` / `openssl.cafile` no `php.ini` ([getcomposer.org/local-issuer](https://getcomposer.org/local-issuer)).
-- **Instalar Composer sem HTTPS no PHP:** o instalador oficial aceita `--disable-tls` (usa HTTP só para obter o `composer.phar`). Descarrega `https://getcomposer.org/installer` com o **PowerShell** ou browser, depois: `php composer-setup.php --disable-tls --install-dir=... --filename=composer.phar`. No repo existe o script `scripts/instalar-composer-disable-tls.ps1` que automatiza isto.
-- **ext-mongodb (XAMPP):** a biblioteca `mongodb/mongodb` 2.x exige **ext-mongodb ^2.2** (alinhado com o Railway / imagens atuais). Descarrega o ZIP em [windows.php.net → pecl → mongodb](https://windows.php.net/downloads/pecl/releases/mongodb/) com a mesma versão major da extensão (ex.: **2.2.x**), **PHP 8.2**, **x64**, **TS** se `php -i` mostrar *ZTS*; coloca `php_mongodb.dll` em `C:\xampp\php\ext\` e `extension=php_mongodb.dll` no `php.ini`. Se tiveres uma DLL antiga (1.21.x), substitui pela 2.2.x. Alternativa só para instalar pacotes sem driver: `.\composer.bat install --ignore-platform-req=ext-mongodb`.
-
-### Exemplo de variáveis no `.env`
-
-`MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster.mongodb.net/nome_da_base?appName=united-flow`
-
-`MONGODB_DATABASE=nome_da_base` (opcional se o nome já estiver na URI)
-
-Obs.: JWT próprio no backend; o banco é MongoDB com coleções criadas em tempo de execução (`users`, `clients`, `tasks`, `invoices`, `counters`).
+Variáveis: ver `.env.example`.
 
 ## Endpoints principais
 
@@ -51,20 +37,30 @@ Obs.: JWT próprio no backend; o banco é MongoDB com coleções criadas em temp
 - `src/Controllers` handlers HTTP.
 - `src/Repositories` acesso a dados.
 - `src/Middleware` proteção de rotas.
-- `database/migrations/001_init.sql` referência legada (Postgres); o runtime usa MongoDB.
+- `database/migrations/001_init.sql` referência legada (Postgres).
+- `index.php` na **raiz** do repo inclui `public/index.php` (útil quando o document root no contentor é `/app`).
 
 ## Deploy no Railway (Railpack)
 
-O Railpack **não oferece PHP 8.1** — use `composer.json` com `"php": "^8.2"` ou superior.
+O Railpack **não oferece PHP 8.1** — use `"php": "^8.2"` ou superior no `composer.json`.
 
-No painel do serviço Railway, defina a variável de ambiente:
+### Variáveis no Railway
 
-- `RAILPACK_PHP_ROOT_DIR=/app/public`
+- `MONGODB_URI`, `MONGODB_DATABASE`, `APP_KEY`, `JWT_TTL`, `APP_ENV`, `APP_URL`
+- Opcional mas recomendado: **`RAILPACK_PHP_ROOT_DIR=/app/public`** (FrankenPHP serve a pasta `public/`).
+- O Railpack escuta em **`{$PORT}`** (o Railway define `PORT`); não fixes porta manualmente.
 
-Isso aponta o document root para a pasta `public/` (onde está o `index.php`). Sem isso, o servidor pode não achar o front controller.
+### MongoDB Atlas
 
-Configure também `APP_KEY`, `JWT_TTL`, `MONGODB_URI` e, se precisar, `MONGODB_DATABASE` nas variáveis do Railway.
+Em **Network Access**, permite IPs de saída do Railway (ex.: **`0.0.0.0/0`** para testes) — senão a app pode ficar à espera da base e o proxy dá timeout.
 
-### "Application failed to respond" no Railway
+### "Application failed to respond"
 
-O health check costuma bater em `/` ou `/api/health`. O bootstrap precisa de `MONGODB_URI` válida; sem isso o serviço não sobe. `GET /api/health` inclui o campo `mongodb` (`connected` ou `unavailable`).
+Mensagem do **proxy** do Railway: não recebeu resposta HTTP a tempo ou a ligação falhou.
+
+1. **Confirma que o último deploy inclui** `index.php` na raiz (ver acima) **ou** define `RAILPACK_PHP_ROOT_DIR=/app/public`.
+2. **Logs do deploy**: erros PHP (vendor em falta, `MONGODB_URI` vazia, fatal no bootstrap).
+3. **`GET /`** deve responder JSON rápido **sem** MongoDB; **`GET /api/health`** precisa de MongoDB — se só `/api/health` falhar, verifica Atlas e `MONGODB_URI`.
+4. Os avisos nos logs (HTTP/2 sem TLS, Caddyfile `fmt`, HTTPS desativado **dentro** do contentor) são **normais**; o Railway termina TLS na frente.
+
+Os logs que mostraste ("FrankenPHP started", "server running") indicam que o processo **subiu**; o problema costuma ser **rota/porta/healthcheck**, **timeout para o MongoDB**, ou **crash só ao processar pedidos**.
