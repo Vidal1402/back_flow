@@ -50,10 +50,10 @@ final class InvoiceRepository
     }
 
     /**
-     * @param array<string, mixed> $doc
+     * @param iterable<mixed, mixed> $doc
      * @return array<string, mixed>
      */
-    private function normalizeAssoc(array $doc): array
+    private function normalizeAssoc(iterable $doc): array
     {
         $out = [];
         foreach ($doc as $k => $v) {
