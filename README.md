@@ -52,6 +52,15 @@ O Railpack **não oferece PHP 8.1** — use `"php": "^8.2"` ou superior no `comp
 
 O Railway injeta **`PORT`** automaticamente; não defines outra porta à mão salvo saberes o que estás a fazer.
 
+### Rede pública (502 Bad Gateway)
+
+No painel **Networking → Public Networking → Target port**:
+
+- O valor tem de ser **o mesmo** que a variável **`PORT`** do serviço (vê em **Variables**; costuma ser **8000** ou **8080** consoante o projeto).
+- Se definires **Target port = 8000** mas o contentor só escuta na **80** (comportamento Railpack sem correcção), o proxy devolve **502**.
+- Este repositório define **`startCommand`** em `railway.json` para fazer `SERVER_NAME=:$PORT` antes de `/start-container.sh`, alinhando o Caddy com a **`PORT`** do Railway.
+- Alternativa no painel: variável **`SERVER_NAME`** = `:${{PORT}}` (referência ao `PORT` do mesmo serviço).
+
 ### MongoDB Atlas
 
 Em **Network Access**, permite IPs de saída do Railway (ex.: **`0.0.0.0/0`** para testes) — senão a app pode ficar à espera da base e o proxy dá timeout.

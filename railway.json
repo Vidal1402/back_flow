@@ -14,6 +14,9 @@
       }
     },
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
+    "restartPolicyMaxRetries": 10,
+    "healthcheckPath": "/",
+    "healthcheckTimeout": 60,
+    "startCommand": "sh -c 'export SERVER_NAME=:$PORT && exec /start-container.sh'"
   }
 }
