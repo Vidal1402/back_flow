@@ -1,2 +1,5 @@
 .env
 .env.example
+/vendor/
+composer.phar
+cacert.pem

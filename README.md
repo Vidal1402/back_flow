@@ -6,24 +6,30 @@ Backend MVP em PHP nativo com padrão em camadas:
 - Controllers
 - Repositories
 - Middleware JWT
-- Migrações SQL
+- MongoDB (driver oficial `mongodb/mongodb`)
 
-## Executar local (Supabase Postgres)
+## Executar local (MongoDB Atlas)
 
 1. Copie `.env.example` para `.env`.
-2. Configure `DB_DSN`, `DB_USER` e `DB_PASS` com os dados do seu projeto Supabase.
-3. Rode `composer install` (opcional se quiser autoload PSR-4 via Composer).
+2. Configure `MONGODB_URI` com a connection string do Atlas (e opcionalmente `MONGODB_DATABASE` se a URI não tiver o nome da base no path).
+3. Rode `composer install` (veja **Composer no Windows** abaixo se o comando não existir ou der erro de SSL).
 4. Rode `php -S localhost:8000 -t public`.
 
-### Exemplo de conexao no `.env`
+### Composer no Windows
 
-`DB_DSN=pgsql:host=db.<project-ref>.supabase.co;port=5432;dbname=postgres;sslmode=require`
+- **Instalar globalmente (recomendado):** descarregue o instalador em [getcomposer.org/download](https://getcomposer.org/download/) e marque a opção para adicionar `composer` ao PATH. Reinicie o terminal.
+- **Só neste projeto:** na raiz do repo deve existir `composer.phar`. Use na pasta do projeto: `.\composer.bat install` (o script usa o PHP em `C:\xampp\php\php.exe` se existir; edite `composer.bat` se o teu PHP estiver outro sítio).
+- **Erro SSL (`curl error 60` / `certificate verify failed`) no Composer Setup ou no PHP:** comum com XAMPP + antivírus (inspeção HTTPS). Tenta: (1) desativar temporariamente a inspeção HTTPS no Avast ou exceção para `php.exe`; (2) `cacert.pem` atual em `C:\xampp\php\extras\ssl\cacert.pem` e `curl.cainfo` / `openssl.cafile` no `php.ini` ([getcomposer.org/local-issuer](https://getcomposer.org/local-issuer)).
+- **Instalar Composer sem HTTPS no PHP:** o instalador oficial aceita `--disable-tls` (usa HTTP só para obter o `composer.phar`). Descarrega `https://getcomposer.org/installer` com o **PowerShell** ou browser, depois: `php composer-setup.php --disable-tls --install-dir=... --filename=composer.phar`. No repo existe o script `scripts/instalar-composer-disable-tls.ps1` que automatiza isto.
+- **ext-mongodb em falta (XAMPP):** descarrega o ZIP certo em [windows.php.net → pecl → mongodb](https://windows.php.net/downloads/pecl/releases/mongodb/) (para **PHP 8.2**, **x64**, **TS** se `php -i` mostrar *ZTS*), extrai `php_mongodb.dll` para `C:\xampp\php\ext\` e adiciona `extension=php_mongodb.dll` no `php.ini`. Alternativa só para instalar dependências sem correr a API: `.\composer.bat install --ignore-platform-req=ext-mongodb`.
 
-`DB_USER=postgres`
+### Exemplo de variáveis no `.env`
 
-`DB_PASS=<senha-do-banco>`
+`MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster.mongodb.net/nome_da_base?appName=united-flow`
 
-Obs.: esta API usa Supabase como banco Postgres (PDO), com JWT proprio no backend (nao usa Supabase Auth).
+`MONGODB_DATABASE=nome_da_base` (opcional se o nome já estiver na URI)
+
+Obs.: JWT próprio no backend; o banco é MongoDB com coleções criadas em tempo de execução (`users`, `clients`, `tasks`, `invoices`, `counters`).
 
 ## Endpoints principais
 
@@ -45,22 +51,20 @@ Obs.: esta API usa Supabase como banco Postgres (PDO), com JWT proprio no backen
 - `src/Controllers` handlers HTTP.
 - `src/Repositories` acesso a dados.
 - `src/Middleware` proteção de rotas.
-- `database/migrations` schema SQL versionado.
+- `database/migrations/001_init.sql` referência legada (Postgres); o runtime usa MongoDB.
 
 ## Deploy no Railway (Railpack)
 
-O Railpack **nao oferece PHP 8.1** — use `composer.json` com `"php": "^8.2"` ou superior.
+O Railpack **não oferece PHP 8.1** — use `composer.json` com `"php": "^8.2"` ou superior.
 
-No painel do servico Railway, defina a variavel de ambiente:
+No painel do serviço Railway, defina a variável de ambiente:
 
 - `RAILPACK_PHP_ROOT_DIR=/app/public`
 
-Isso aponta o document root para a pasta `public/` (onde esta o `index.php`). Sem isso, o servidor pode nao achar o front controller.
+Isso aponta o document root para a pasta `public/` (onde está o `index.php`). Sem isso, o servidor pode não achar o front controller.
 
-Configure tambem `APP_KEY`, `JWT_TTL`, `DB_DSN`, `DB_USER`, `DB_PASS` nas variaveis do Railway.
+Configure também `APP_KEY`, `JWT_TTL`, `MONGODB_URI` e, se precisar, `MONGODB_DATABASE` nas variáveis do Railway.
 
 ### "Application failed to respond" no Railway
 
-O health check costuma bater em `/` ou `/api/health`. Antes, o codigo conectava ao Postgres **antes** de qualquer resposta; se `DB_*` estivesse errado, ate o health falhava.
-
-Agora `GET /`, `GET /health` e `GET /api/health` respondem **sem banco**. Se a raiz voltar a responder mas as rotas `/api/*` derem erro, o problema esta nas variaveis `DB_*` ou na rede ate o Supabase.
+O health check costuma bater em `/` ou `/api/health`. O bootstrap precisa de `MONGODB_URI` válida; sem isso o serviço não sobe. `GET /api/health` inclui o campo `mongodb` (`connected` ou `unavailable`).

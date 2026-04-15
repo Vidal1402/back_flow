@@ -4,8 +4,8 @@
   "type": "project",
   "require": {
     "php": "^8.2",
-    "ext-pdo": "*",
-    "ext-pgsql": "*"
+    "ext-mongodb": "*",
+    "mongodb/mongodb": "^1.20"
   },
   "autoload": {
     "psr-4": {

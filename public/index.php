@@ -25,8 +25,8 @@ if (is_file($vendorAutoload)) {
 $request = Request::capture();
 $path = rtrim($request->path, '/') ?: '/';
 
-// Health sem conexao com banco (Railway / load balancer / probes)
-if ($request->method === 'GET' && in_array($path, ['/', '/api/health', '/health'], true)) {
+// Health leve sem bootstrap (probes na raiz). /api/health usa HealthController + MongoDB.
+if ($request->method === 'GET' && in_array($path, ['/', '/health'], true)) {
     Response::json([
         'status' => 'ok',
         'service' => 'php-mvp-api',

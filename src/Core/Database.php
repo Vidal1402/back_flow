@@ -4,55 +4,64 @@ declare(strict_types=1);
 
 namespace App\Core;
 
-use PDO;
-use PDOException;
+use MongoDB\Client;
+use MongoDB\Database as MongoDatabase;
+use Throwable;
 
 final class Database
 {
-    private static ?PDO $pdo = null;
+    private static ?Client $client = null;
 
-    public static function connection(): PDO
+    private static ?MongoDatabase $db = null;
+
+    public static function client(): Client
     {
-        if (self::$pdo !== null) {
-            return self::$pdo;
+        if (self::$client !== null) {
+            return self::$client;
         }
 
-        $dsn = Env::get('DB_DSN', 'pgsql:host=localhost;port=5432;dbname=postgres');
-        $user = Env::get('DB_USER', '') ?: null;
-        $pass = Env::get('DB_PASS', '') ?: null;
-
-        if (str_starts_with($dsn, 'sqlite:')) {
-            $sqlitePath = substr($dsn, 7);
-            if ($sqlitePath !== '') {
-                $absolutePath = self::toAbsolutePath($sqlitePath);
-                $dir = dirname($absolutePath);
-                if (!is_dir($dir)) {
-                    mkdir($dir, 0777, true);
-                }
-                $dsn = 'sqlite:' . $absolutePath;
-            }
+        $uri = Env::get('MONGODB_URI', '');
+        if ($uri === '') {
+            Response::json([
+                'error' => 'config_error',
+                'message' => 'MONGODB_URI não configurada',
+            ], 500);
         }
 
         try {
-            self::$pdo = new PDO($dsn, $user, $pass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]);
-        } catch (PDOException $e) {
+            self::$client = new Client($uri, ['serverSelectionTimeoutMS' => 10000]);
+        } catch (Throwable $e) {
             Response::json([
                 'error' => 'db_connection_error',
                 'message' => $e->getMessage(),
             ], 500);
         }
 
-        return self::$pdo;
+        return self::$client;
     }
 
-    private static function toAbsolutePath(string $path): string
+    public static function database(): MongoDatabase
     {
-        if (preg_match('/^[A-Za-z]:[\\\\\\/]/', $path) === 1 || str_starts_with($path, '/')) {
-            return $path;
+        if (self::$db !== null) {
+            return self::$db;
         }
-        return dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . $path;
+
+        $name = Env::get('MONGODB_DATABASE', '');
+        if ($name === '') {
+            $name = self::databaseNameFromUri((string) Env::get('MONGODB_URI', '')) ?? 'united_flow';
+        }
+
+        self::$db = self::client()->selectDatabase($name);
+        return self::$db;
+    }
+
+    private static function databaseNameFromUri(string $uri): ?string
+    {
+        $path = parse_url($uri, PHP_URL_PATH);
+        if (!is_string($path) || $path === '' || $path === '/') {
+            return null;
+        }
+
+        return trim($path, '/');
     }
 }

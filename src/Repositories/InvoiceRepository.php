@@ -4,23 +4,62 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
-use PDO;
+use App\Core\BsonUtil;
+use MongoDB\Database as MongoDatabase;
 
 final class InvoiceRepository
 {
-    public function __construct(private readonly PDO $pdo)
+    public function __construct(private readonly MongoDatabase $db)
     {
     }
 
     public function allByOrganization(int $organizationId): array
     {
-        $stmt = $this->pdo->prepare(
-            'SELECT id, invoice_code, period, amount, due_date, status, method, paid_at, created_at
-             FROM invoices
-             WHERE organization_id = :org
-             ORDER BY id DESC'
+        $cursor = $this->db->selectCollection('invoices')->find(
+            ['organization_id' => $organizationId],
+            ['sort' => ['_id' => -1]]
         );
-        $stmt->execute(['org' => $organizationId]);
-        return $stmt->fetchAll() ?: [];
+
+        $rows = [];
+        foreach ($cursor as $doc) {
+            $rows[] = $this->toInvoiceRow($this->normalizeAssoc($doc));
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param array<string, mixed> $doc
+     * @return array<string, mixed>
+     */
+    private function toInvoiceRow(array $doc): array
+    {
+        $paidAt = $doc['paid_at'] ?? null;
+
+        return [
+            'id' => (int) $doc['_id'],
+            'invoice_code' => (string) $doc['invoice_code'],
+            'period' => (string) $doc['period'],
+            'amount' => (float) $doc['amount'],
+            'due_date' => (string) $doc['due_date'],
+            'status' => (string) $doc['status'],
+            'method' => (string) $doc['method'],
+            'paid_at' => $paidAt !== null ? (BsonUtil::formatDate($paidAt) ?? null) : null,
+            'created_at' => BsonUtil::formatDate($doc['created_at'] ?? null) ?? '',
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $doc
+     * @return array<string, mixed>
+     */
+    private function normalizeAssoc(array $doc): array
+    {
+        $out = [];
+        foreach ($doc as $k => $v) {
+            $out[(string) $k] = $v;
+        }
+
+        return $out;
     }
 }
