@@ -32,6 +32,20 @@ $clients = new ClientRepository($db, $sequence);
 $tasks = new TaskRepository($db, $sequence);
 $invoices = new InvoiceRepository($db);
 
+// Seed opcional de admin para primeiro acesso em produção.
+$bootstrapAdminEmail = trim((string) (Env::get('ADMIN_EMAIL', '') ?? ''));
+$bootstrapAdminPassword = (string) (Env::get('ADMIN_PASSWORD', '') ?? '');
+if ($bootstrapAdminEmail !== '' && $bootstrapAdminPassword !== '' && !$users->findByEmail($bootstrapAdminEmail)) {
+    $bootstrapAdminName = trim((string) (Env::get('ADMIN_NAME', 'Administrador') ?? 'Administrador'));
+    $users->create(
+        $bootstrapAdminName !== '' ? $bootstrapAdminName : 'Administrador',
+        $bootstrapAdminEmail,
+        password_hash($bootstrapAdminPassword, PASSWORD_BCRYPT),
+        'admin',
+        1
+    );
+}
+
 $authController = new AuthController($users);
 $clientController = new ClientController($clients);
 $taskController = new TaskController($tasks);
