@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Core\Env;
 use App\Core\Request;
 use App\Core\Response;
 
@@ -22,11 +23,21 @@ if (is_file($vendorAutoload)) {
     });
 }
 
+Env::load(dirname(__DIR__) . '/.env');
+
+// Preflight CORS antes do bootstrap (DB/migrações), senão o navegador pode não receber os headers.
+$method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+if ($method === 'OPTIONS') {
+    Response::applyCors();
+    http_response_code(204);
+    exit;
+}
+
 $request = Request::capture();
 $path = rtrim($request->path, '/') ?: '/';
 
-// Health leve sem bootstrap (probes na raiz). /api/health usa HealthController + MongoDB.
-if ($request->method === 'GET' && in_array($path, ['/', '/health'], true)) {
+// Health sem conexao com banco (Railway / load balancer / probes)
+if ($request->method === 'GET' && in_array($path, ['/', '/api/health', '/health'], true)) {
     Response::json([
         'status' => 'ok',
         'service' => 'php-mvp-api',

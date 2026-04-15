@@ -68,6 +68,14 @@ Se definir isso, o Caddy usa `public/` diretamente; o `index.php` da raiz contin
 
 Configure tambem `APP_KEY`, `JWT_TTL`, `DB_DSN`, `DB_USER`, `DB_PASS` nas variaveis do Railway.
 
+### CORS (front em outro dominio / localhost)
+
+O navegador envia primeiro uma requisicao `OPTIONS` (preflight) para rotas como `POST /api/auth/login`.
+Essa resposta **precisa** incluir `Access-Control-Allow-Origin` **antes** de conectar ao banco; por isso o `OPTIONS` e tratado no inicio de `public/index.php`.
+
+- Se `CORS_ORIGINS` estiver **vazio**, a API usa `Access-Control-Allow-Origin: *` (adequado quando o JWT vai no header `Authorization`, sem cookies).
+- Para restringir, defina por exemplo: `CORS_ORIGINS=http://localhost:8082,https://meu-app.vercel.app`
+
 ### "Application failed to respond" no Railway
 
 O health check costuma bater em `/` ou `/api/health`. Antes, o codigo conectava ao Postgres **antes** de qualquer resposta; se `DB_*` estivesse errado, ate o health falhava.
