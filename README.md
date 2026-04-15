@@ -6,32 +6,42 @@ Backend MVP em PHP nativo com padrão em camadas:
 - Controllers
 - Repositories
 - Middleware JWT
-- MongoDB (`mongodb/mongodb`)
+- Migrações SQL
 
-## Executar local
+## Executar local (Supabase Postgres)
 
 1. Copie `.env.example` para `.env`.
-2. Configure `MONGODB_URI`, `APP_KEY`, etc.
-3. `composer install`
-4. Servidor (router para `/api/*`):
-   ```bash
-   php -S localhost:8000 -t public public/index.php
-   ```
+2. Configure `DB_DSN`, `DB_USER` e `DB_PASS` com os dados do seu projeto Supabase.
+3. Rode `composer install` (opcional se quiser autoload PSR-4 via Composer).
+4. Rode `php -S localhost:8000 -t public`.
 
-Variáveis: ver `.env.example`.
+### Exemplo de conexao no `.env`
+
+`DB_DSN=pgsql:host=db.<project-ref>.supabase.co;port=5432;dbname=postgres;sslmode=require`
+
+`DB_USER=postgres`
+
+`DB_PASS=<senha-do-banco>`
+
+Obs.: esta API usa Supabase como banco Postgres (PDO), com JWT proprio no backend (nao usa Supabase Auth).
 
 ## Endpoints principais
 
 - `GET /api/health`
-- `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/auth/me` (JWT)
+- `POST /api/admin/users` (JWT admin)
 - `GET /api/clients` (JWT)
 - `POST /api/clients` (JWT admin)
 - `GET /api/tasks` (JWT)
 - `POST /api/tasks` (JWT)
 - `PATCH /api/tasks/{id}/status` (JWT)
 - `GET /api/invoices` (JWT)
+
+### Criacao de usuarios
+
+- `POST /api/auth/register` retorna `403` (registro publico desativado).
+- Novos usuarios devem ser criados por admin em `POST /api/admin/users`.
 
 ## Estrutura
 
@@ -40,34 +50,26 @@ Variáveis: ver `.env.example`.
 - `src/Controllers` handlers HTTP.
 - `src/Repositories` acesso a dados.
 - `src/Middleware` proteção de rotas.
-- `database/migrations/001_init.sql` referência legada (Postgres).
-- `index.php` na raiz (opcional) inclui `public/index.php`.
-- **`Dockerfile`** — deploy no Railway com PHP embutido em `0.0.0.0:$PORT` (sem Caddy/FrankenPHP).
+- `database/migrations` schema SQL versionado.
 
-## Deploy no Railway
+## Deploy no Railway (Railpack)
 
-O projeto usa **`Dockerfile`** + `railway.json` com `"builder": "DOCKERFILE"` — o processo escuta **sempre** em **`0.0.0.0:${PORT}`**, que é o que o Railway espera. Isto evita os 502 causados por FrankenPHP/Caddy/Railpack com `SERVER_NAME` e `PORT` desalinhados.
+O Railpack **nao oferece PHP 8.1** — use `composer.json` com `"php": "^8.2"` ou superior.
 
-### Variáveis
+### Document root
 
-- `MONGODB_URI`, `MONGODB_DATABASE`, `APP_KEY`, `JWT_TTL`, `APP_ENV`, `APP_URL`
-- **Não** precisas de `RAILPACK_PHP_ROOT_DIR` nem `SERVER_NAME` com esta imagem.
+Em muitos deploys o document root e **`/app`** (raiz do repo), nao `/app/public`. Por isso existe **`index.php` na raiz** redirecionando para `public/index.php`.
 
-### Rede (Target port)
+Opcionalmente no Railway voce pode definir:
 
-Em **Networking → Public Networking**, o **Target port** tem de ser **igual** ao **`PORT`** que o Railway mostra nas **Variables** do serviço (muitas vezes **8080**). Se estiveres a apontar para **8000** mas `PORT=8080`, continuas a ter erros.
+- `RAILPACK_PHP_ROOT_DIR=/app/public`
 
-### MongoDB Atlas
+Se definir isso, o Caddy usa `public/` diretamente; o `index.php` da raiz continua inofensivo.
 
-**Network Access:** permite **`0.0.0.0/0`** (ou regra adequada) para o cluster aceitar ligações do Railway.
+Configure tambem `APP_KEY`, `JWT_TTL`, `DB_DSN`, `DB_USER`, `DB_PASS` nas variaveis do Railway.
 
-### Healthcheck
+### "Application failed to respond" no Railway
 
-`railway.json` define `healthcheckPath: "/"` — o `GET /` responde JSON sem MongoDB.
+O health check costuma bater em `/` ou `/api/health`. Antes, o codigo conectava ao Postgres **antes** de qualquer resposta; se `DB_*` estivesse errado, ate o health falhava.
 
-### Build
-
-- `composer install` corre na fase de build (stage `vendor`).
-- Extensão **mongodb** instalada via PECL na imagem `php:8.4-cli-bookworm`.
-
-Após `git push`, o Railway deve detetar o **Dockerfile** automaticamente (confirmar no painel **Build → Builder** que está a usar Dockerfile e não Railpack).
+Agora `GET /`, `GET /health` e `GET /api/health` respondem **sem banco**. Se a raiz voltar a responder mas as rotas `/api/*` derem erro, o problema esta nas variaveis `DB_*` ou na rede ate o Supabase.

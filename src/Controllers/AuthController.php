@@ -18,29 +18,19 @@ final class AuthController
 
     public function register(Request $request): void
     {
-        $name = trim((string) ($request->body['name'] ?? ''));
-        $email = trim((string) ($request->body['email'] ?? ''));
-        $password = (string) ($request->body['password'] ?? '');
-        $role = (string) ($request->body['role'] ?? 'colaborador');
+        Response::json([
+            'error' => 'forbidden',
+            'message' => 'Registro público desativado. Use POST /api/admin/users com JWT de admin.',
+        ], 403);
+    }
 
-        if ($name === '' || $email === '' || $password === '') {
-            Response::json(['error' => 'validation_error', 'message' => 'name, email e password são obrigatórios'], 422);
-        }
-
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            Response::json(['error' => 'validation_error', 'message' => 'email inválido'], 422);
-        }
-
-        if ($this->users->findByEmail($email)) {
-            Response::json(['error' => 'conflict', 'message' => 'Email já cadastrado'], 409);
-        }
-
-        $hash = password_hash($password, PASSWORD_BCRYPT);
-        $id = $this->users->create($name, $email, $hash, $role);
-        $user = $this->users->findById($id);
+    public function adminCreateUser(Request $request, array $context): void
+    {
+        $organizationId = (int) ($context['user']['organization_id'] ?? 1);
+        $user = $this->createUserFromPayload($request, $organizationId);
 
         Response::json([
-            'message' => 'Usuário criado',
+            'message' => 'Usuário criado por admin',
             'user' => $user,
         ], 201);
     }
@@ -86,5 +76,39 @@ final class AuthController
     public function me(array $context): void
     {
         Response::json(['user' => $context['user']]);
+    }
+
+    private function createUserFromPayload(Request $request, int $organizationId): array
+    {
+        $name = trim((string) ($request->body['name'] ?? ''));
+        $email = trim((string) ($request->body['email'] ?? ''));
+        $password = (string) ($request->body['password'] ?? '');
+        $role = (string) ($request->body['role'] ?? 'colaborador');
+
+        if ($name === '' || $email === '' || $password === '') {
+            Response::json(['error' => 'validation_error', 'message' => 'name, email e password são obrigatórios'], 422);
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            Response::json(['error' => 'validation_error', 'message' => 'email inválido'], 422);
+        }
+
+        if (!in_array($role, ['admin', 'colaborador'], true)) {
+            Response::json(['error' => 'validation_error', 'message' => 'role deve ser admin ou colaborador'], 422);
+        }
+
+        if ($this->users->findByEmail($email)) {
+            Response::json(['error' => 'conflict', 'message' => 'Email já cadastrado'], 409);
+        }
+
+        $hash = password_hash($password, PASSWORD_BCRYPT);
+        $id = $this->users->create($name, $email, $hash, $role, $organizationId);
+        $user = $this->users->findById($id);
+
+        if (!$user) {
+            Response::json(['error' => 'server_error', 'message' => 'Falha ao carregar usuário recém-criado'], 500);
+        }
+
+        return $user;
     }
 }

@@ -9,11 +9,10 @@ use App\Controllers\InvoiceController;
 use App\Controllers\TaskController;
 use App\Core\Database;
 use App\Core\Env;
-use App\Core\MongoSchema;
+use App\Core\Migrator;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Router;
-use App\Core\Sequence;
 use App\Middleware\AuthMiddleware;
 use App\Repositories\ClientRepository;
 use App\Repositories\InvoiceRepository;
@@ -22,15 +21,13 @@ use App\Repositories\UserRepository;
 
 Env::load(dirname(__DIR__) . '/.env');
 
-$db = Database::database();
-MongoSchema::ensureIndexes($db);
+$pdo = Database::connection();
+Migrator::run($pdo, dirname(__DIR__) . '/database/migrations');
 
-$sequence = new Sequence($db);
-
-$users = new UserRepository($db, $sequence);
-$clients = new ClientRepository($db, $sequence);
-$tasks = new TaskRepository($db, $sequence);
-$invoices = new InvoiceRepository($db);
+$users = new UserRepository($pdo);
+$clients = new ClientRepository($pdo);
+$tasks = new TaskRepository($pdo);
+$invoices = new InvoiceRepository($pdo);
 
 $authController = new AuthController($users);
 $clientController = new ClientController($clients);
@@ -54,6 +51,7 @@ $router->add('GET', '/api/health', fn(Request $request) => $healthController($re
 $router->add('POST', '/api/auth/register', fn(Request $request) => $authController->register($request));
 $router->add('POST', '/api/auth/login', fn(Request $request) => $authController->login($request));
 $router->add('GET', '/api/auth/me', fn(Request $request, array $params, array $context) => $authController->me($context), [$authMiddleware]);
+$router->add('POST', '/api/admin/users', fn(Request $request, array $params, array $context) => $authController->adminCreateUser($request, $context), [$authMiddleware, $adminOnly]);
 
 $router->add('GET', '/api/clients', fn(Request $request, array $params, array $context) => $clientController->index($context), [$authMiddleware]);
 $router->add('POST', '/api/clients', fn(Request $request, array $params, array $context) => $clientController->store($request, $context), [$authMiddleware, $adminOnly]);
