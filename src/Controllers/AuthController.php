@@ -45,6 +45,11 @@ final class AuthController
         }
 
         $user = $this->users->findByEmail($email);
+        if (!$user) {
+            $this->bootstrapAdminOnFirstLogin($email, $password);
+            $user = $this->users->findByEmail($email);
+        }
+
         if (!$user || !password_verify($password, (string) $user['password_hash'])) {
             Response::json(['error' => 'unauthorized', 'message' => 'Credenciais inválidas'], 401);
         }
@@ -110,5 +115,37 @@ final class AuthController
         }
 
         return $user;
+    }
+
+    private function bootstrapAdminOnFirstLogin(string $email, string $password): void
+    {
+        $adminEmail = trim((string) (Env::get('ADMIN_EMAIL', '') ?? ''));
+        $adminPassword = (string) (Env::get('ADMIN_PASSWORD', '') ?? '');
+        $adminName = trim((string) (Env::get('ADMIN_NAME', 'Administrador') ?? 'Administrador'));
+
+        if ($adminEmail === '' || $adminPassword === '') {
+            return;
+        }
+
+        if (mb_strtolower($email) !== mb_strtolower($adminEmail)) {
+            return;
+        }
+
+        if ($password !== $adminPassword) {
+            return;
+        }
+
+        if ($this->users->findByEmail($adminEmail)) {
+            return;
+        }
+
+        $hash = password_hash($adminPassword, PASSWORD_BCRYPT);
+        $this->users->create(
+            $adminName !== '' ? $adminName : 'Administrador',
+            $adminEmail,
+            $hash,
+            'admin',
+            1
+        );
     }
 }

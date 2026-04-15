@@ -48,21 +48,32 @@ if ($bootstrapAdminEmail !== '' && $bootstrapAdminPassword !== '' && !$users->fi
 
 // Opcional: reset forçado de senha/admin para destravar acesso em produção.
 // Use ADMIN_FORCE_RESET_PASSWORD=true temporariamente; depois volte para false.
-$forceResetAdminPassword = strtolower((string) (Env::get('ADMIN_FORCE_RESET_PASSWORD', 'false') ?? 'false')) === 'true';
+$forceResetFlagRaw = mb_strtolower(trim((string) (Env::get('ADMIN_FORCE_RESET_PASSWORD', 'false') ?? 'false')));
+$forceResetAdminPassword = in_array($forceResetFlagRaw, ['1', 'true', 'yes', 'on'], true);
 if ($bootstrapAdminEmail !== '' && $bootstrapAdminPassword !== '' && $forceResetAdminPassword) {
     $bootstrapAdminName = trim((string) (Env::get('ADMIN_NAME', 'Administrador') ?? 'Administrador'));
-    $db->selectCollection('users')->updateOne(
-        ['email' => mb_strtolower($bootstrapAdminEmail)],
-        [
-            '$set' => [
-                'name' => $bootstrapAdminName !== '' ? $bootstrapAdminName : 'Administrador',
-                'password_hash' => password_hash($bootstrapAdminPassword, PASSWORD_BCRYPT),
-                'role' => 'admin',
-                'organization_id' => 1,
-            ],
-        ],
-        ['upsert' => false]
-    );
+    $existingAdmin = $users->findByEmail($bootstrapAdminEmail);
+    if ($existingAdmin === null) {
+        $users->create(
+            $bootstrapAdminName !== '' ? $bootstrapAdminName : 'Administrador',
+            $bootstrapAdminEmail,
+            password_hash($bootstrapAdminPassword, PASSWORD_BCRYPT),
+            'admin',
+            1
+        );
+    } else {
+        $db->selectCollection('users')->updateOne(
+            ['_id' => (int) $existingAdmin['id']],
+            [
+                '$set' => [
+                    'name' => $bootstrapAdminName !== '' ? $bootstrapAdminName : 'Administrador',
+                    'password_hash' => password_hash($bootstrapAdminPassword, PASSWORD_BCRYPT),
+                    'role' => 'admin',
+                    'organization_id' => 1,
+                ],
+            ]
+        );
+    }
 }
 
 $authController = new AuthController($users);
