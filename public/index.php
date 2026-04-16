@@ -27,9 +27,14 @@ Env::load(dirname(__DIR__) . '/.env');
 
 @ini_set('display_errors', '0');
 
+$showDebugDetails = (static function (): bool {
+    $d = strtolower(trim((string) Env::get('DEBUG', '')));
+    return Env::get('APP_ENV', 'production') === 'local' || in_array($d, ['1', 'true', 'yes'], true);
+})();
+
 // Erros fatais viram JSON (se nenhum header foi enviado). Não chame applyCors() antes do bootstrap,
 // senão headers_sent() impede este handler e o PHP devolve HTML que quebra o fetch no front.
-register_shutdown_function(static function (): void {
+register_shutdown_function(static function () use ($showDebugDetails): void {
     $e = error_get_last();
     if ($e === null) {
         return;
@@ -44,13 +49,12 @@ register_shutdown_function(static function (): void {
     if (!class_exists(Response::class)) {
         return;
     }
-    $showDetails = (Env::get('APP_ENV', 'production') === 'local');
     Response::json([
         'error' => 'fatal_error',
         'message' => 'Erro fatal no servidor (PHP).',
-        'details' => $showDetails ? ($e['message'] ?? '') : null,
-        'file' => $showDetails ? ($e['file'] ?? null) : null,
-        'line' => $showDetails ? (int) ($e['line'] ?? 0) : null,
+        'details' => $showDebugDetails ? ($e['message'] ?? '') : null,
+        'file' => $showDebugDetails ? ($e['file'] ?? null) : null,
+        'line' => $showDebugDetails ? (int) ($e['line'] ?? 0) : null,
     ], 500);
 });
 
@@ -81,6 +85,6 @@ try {
     Response::json([
         'error' => 'server_error',
         'message' => 'Erro interno no servidor.',
-        'details' => Env::get('APP_ENV', 'production') === 'local' ? $e->getMessage() : null,
+        'details' => $showDebugDetails ? $e->getMessage() : null,
     ], 500);
 }

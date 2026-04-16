@@ -62,6 +62,12 @@ Variaveis minimas:
 - `JWT_TTL`
 - `CORS_ORIGINS` (ex.: `http://localhost:8082`)
 
+### MongoDB Atlas (500 ao conectar)
+
+No Atlas, abra **Network Access** e permita o IP do servidor (para testes, **0.0.0.0/0**). Sem isso, o backend no Railway costuma falhar com erro de conexão e o login retorna **500**.
+
+Se a senha do usuario do banco tiver caracteres especiais, ela precisa estar **codificada na URI** (ou use senha so com letras/numeros para evitar).
+
 Seed inicial opcional de admin:
 
 - `SEED_ADMIN_NAME`
