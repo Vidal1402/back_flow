@@ -25,16 +25,42 @@ if (is_file($vendorAutoload)) {
 
 Env::load(dirname(__DIR__) . '/.env');
 
-// Preflight CORS antes do bootstrap (DB/migrações), senão o navegador pode não receber os headers.
+@ini_set('display_errors', '0');
+
+// Erros fatais viram JSON (se nenhum header foi enviado). Não chame applyCors() antes do bootstrap,
+// senão headers_sent() impede este handler e o PHP devolve HTML que quebra o fetch no front.
+register_shutdown_function(static function (): void {
+    $e = error_get_last();
+    if ($e === null) {
+        return;
+    }
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR];
+    if (!in_array($e['type'], $fatalTypes, true)) {
+        return;
+    }
+    if (headers_sent()) {
+        return;
+    }
+    if (!class_exists(Response::class)) {
+        return;
+    }
+    $showDetails = (Env::get('APP_ENV', 'production') === 'local');
+    Response::json([
+        'error' => 'fatal_error',
+        'message' => 'Erro fatal no servidor (PHP).',
+        'details' => $showDetails ? ($e['message'] ?? '') : null,
+        'file' => $showDetails ? ($e['file'] ?? null) : null,
+        'line' => $showDetails ? (int) ($e['line'] ?? 0) : null,
+    ], 500);
+});
+
+// Preflight CORS antes do bootstrap (DB), senão o navegador pode não receber os headers.
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 if ($method === 'OPTIONS') {
     Response::applyCors();
     http_response_code(204);
     exit;
 }
-
-// Envia CORS o mais cedo possível também para GET/POST, antes do bootstrap (evita resposta 200 sem cabeçalho).
-Response::applyCors();
 
 $request = Request::capture();
 $path = rtrim($request->path, '/') ?: '/';
