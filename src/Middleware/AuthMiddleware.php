@@ -19,7 +19,14 @@ final class AuthMiddleware
 
     public function __invoke(Request $request): array
     {
-        $authorization = $request->header('Authorization');
+        $authorization =
+            $request->header('Authorization') ??
+            (is_string($_SERVER['HTTP_AUTHORIZATION'] ?? null) ? (string) $_SERVER['HTTP_AUTHORIZATION'] : null) ??
+            (is_string($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null) ? (string) $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] : null);
+
+        if (is_string($authorization)) {
+            $authorization = trim($authorization);
+        }
         if (!$authorization || !str_starts_with($authorization, 'Bearer ')) {
             Response::json(['error' => 'unauthorized', 'message' => 'Token ausente'], 401);
         }
@@ -34,25 +41,6 @@ final class AuthMiddleware
             $payload = JWT::decode($token, $secret);
         } catch (Exception $e) {
             Response::json(['error' => 'unauthorized', 'message' => $e->getMessage()], 401);
-        }
-
-        $lookupDbRaw = mb_strtolower(trim((string) (Env::get('AUTH_LOOKUP_USER_DB', 'false') ?? 'false')));
-        $lookupDb = in_array($lookupDbRaw, ['1', 'true', 'yes', 'on'], true);
-        if (!$lookupDb) {
-            $userId = (int) ($payload['sub'] ?? 0);
-            if ($userId <= 0) {
-                Response::json(['error' => 'unauthorized', 'message' => 'Token inválido'], 401);
-            }
-
-            return [
-                'user' => [
-                    'id' => $userId,
-                    'name' => (string) ($payload['name'] ?? ''),
-                    'email' => (string) ($payload['email'] ?? ''),
-                    'role' => (string) ($payload['role'] ?? ''),
-                    'organization_id' => (int) ($payload['org'] ?? 1),
-                ],
-            ];
         }
 
         $userId = (int) ($payload['sub'] ?? 0);
