@@ -22,13 +22,25 @@ final class UserRepository
     {
         $normalizedEmail = mb_strtolower(trim($email));
         $doc = $this->db->selectCollection('users')->findOne(['email' => $normalizedEmail]);
-        return $doc ? $this->mapUser($doc->getArrayCopy(), true) : null;
+        if (!$doc) {
+            return null;
+        }
+
+        $data = $doc->getArrayCopy();
+        $data = $this->ensureNumericId($data);
+        return $this->mapUser($data, true);
     }
 
     public function findById(int $id): ?array
     {
         $doc = $this->db->selectCollection('users')->findOne(['id' => $id]);
-        return $doc ? $this->mapUser($doc->getArrayCopy(), false) : null;
+        if (!$doc) {
+            return null;
+        }
+
+        $data = $doc->getArrayCopy();
+        $data = $this->ensureNumericId($data);
+        return $this->mapUser($data, false);
     }
 
     public function create(string $name, string $email, string $passwordHash, string $role = 'colaborador', int $organizationId = 1): int
@@ -46,6 +58,32 @@ final class UserRepository
             'updated_at' => $now,
         ]);
         return $id;
+    }
+
+    private function ensureNumericId(array $doc): array
+    {
+        $currentId = (int) ($doc['id'] ?? 0);
+        if ($currentId > 0) {
+            return $doc;
+        }
+
+        $newId = $this->sequence->next('users');
+        $doc['id'] = $newId;
+
+        // Migração lazy para usuários antigos sem campo "id".
+        if (isset($doc['_id'])) {
+            $this->db->selectCollection('users')->updateOne(
+                ['_id' => $doc['_id']],
+                ['$set' => ['id' => $newId]]
+            );
+        } elseif (isset($doc['email'])) {
+            $this->db->selectCollection('users')->updateOne(
+                ['email' => $doc['email']],
+                ['$set' => ['id' => $newId]]
+            );
+        }
+
+        return $doc;
     }
 
     private function mapUser(array $doc, bool $withPassword): array

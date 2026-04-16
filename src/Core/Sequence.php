@@ -25,6 +25,11 @@ final class Sequence
             ]
         );
 
-        return (int) ($doc['seq'] ?? 0);
+        $seq = (int) ($doc['seq'] ?? 0);
+        if ($seq <= 0) {
+            throw new \RuntimeException("Sequence inválida para '{$counterName}': {$seq}");
+        }
+
+        return $seq;
     }
 }
