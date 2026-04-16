@@ -12,7 +12,9 @@ FROM php:8.4-cli-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     $PHPIZE_DEPS \
+    libpq-dev \
     libssl-dev \
+    && docker-php-ext-install pdo_pgsql pgsql \
     && pecl install mongodb \
     && docker-php-ext-enable mongodb \
     && apt-get purge -y --auto-remove $PHPIZE_DEPS \
