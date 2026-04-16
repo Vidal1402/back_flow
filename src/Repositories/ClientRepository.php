@@ -13,77 +13,56 @@ final class ClientRepository
 {
     public function __construct(
         private readonly MongoDatabase $db,
-        private readonly Sequence $sequence,
-    ) {
+        private readonly Sequence $sequence
+    )
+    {
     }
 
     public function allByOrganization(int $organizationId): array
     {
         $cursor = $this->db->selectCollection('clients')->find(
             ['organization_id' => $organizationId],
-            ['sort' => ['_id' => -1]]
+            ['sort' => ['id' => -1]]
         );
 
-        $rows = [];
+        $items = [];
         foreach ($cursor as $doc) {
-            $rows[] = $this->toClientRow($this->normalizeAssoc($doc));
+            $row = $doc->getArrayCopy();
+            $items[] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'name' => (string) ($row['name'] ?? ''),
+                'empresa' => (string) ($row['empresa'] ?? ''),
+                'email' => (string) ($row['email'] ?? ''),
+                'telefone' => $row['telefone'] ?? null,
+                'plano' => (string) ($row['plano'] ?? 'Growth'),
+                'valor' => (float) ($row['valor'] ?? 0),
+                'status' => (string) ($row['status'] ?? 'ativo'),
+                'organization_id' => (int) ($row['organization_id'] ?? 1),
+                'created_at' => BsonUtil::formatDate($row['created_at'] ?? null),
+            ];
         }
 
-        return $rows;
+        return $items;
     }
 
     public function create(array $payload, int $organizationId): int
     {
         $id = $this->sequence->next('clients');
         $now = new UTCDateTime();
-
         $this->db->selectCollection('clients')->insertOne([
-            '_id' => $id,
-            'name' => $payload['name'],
-            'empresa' => $payload['empresa'],
-            'email' => $payload['email'],
+            'id' => $id,
+            'name' => (string) $payload['name'],
+            'empresa' => (string) $payload['empresa'],
+            'email' => mb_strtolower(trim((string) $payload['email'])),
             'telefone' => $payload['telefone'] ?? null,
-            'plano' => $payload['plano'] ?? 'Growth',
+            'plano' => (string) ($payload['plano'] ?? 'Growth'),
             'valor' => (float) ($payload['valor'] ?? 0),
-            'status' => $payload['status'] ?? 'ativo',
+            'status' => (string) ($payload['status'] ?? 'ativo'),
             'organization_id' => $organizationId,
             'created_at' => $now,
+            'updated_at' => $now,
         ]);
 
         return $id;
-    }
-
-    /**
-     * @param array<string, mixed> $doc
-     * @return array<string, mixed>
-     */
-    private function toClientRow(array $doc): array
-    {
-        return [
-            'id' => (int) $doc['_id'],
-            'name' => (string) $doc['name'],
-            'empresa' => (string) $doc['empresa'],
-            'email' => (string) $doc['email'],
-            'telefone' => $doc['telefone'] !== null ? (string) $doc['telefone'] : null,
-            'plano' => (string) $doc['plano'],
-            'valor' => (float) $doc['valor'],
-            'status' => (string) $doc['status'],
-            'organization_id' => (int) $doc['organization_id'],
-            'created_at' => BsonUtil::formatDate($doc['created_at'] ?? null) ?? '',
-        ];
-    }
-
-    /**
-     * @param iterable<mixed, mixed> $doc
-     * @return array<string, mixed>
-     */
-    private function normalizeAssoc(iterable $doc): array
-    {
-        $out = [];
-        foreach ($doc as $k => $v) {
-            $out[(string) $k] = $v;
-        }
-
-        return $out;
     }
 }

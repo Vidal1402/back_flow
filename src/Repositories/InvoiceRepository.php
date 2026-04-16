@@ -4,42 +4,63 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
-use PDO;
+use App\Core\BsonUtil;
+use App\Core\Sequence;
+use MongoDB\BSON\UTCDateTime;
+use MongoDB\Database as MongoDatabase;
 
 final class InvoiceRepository
 {
-    public function __construct(private readonly PDO $pdo)
+    public function __construct(
+        private readonly MongoDatabase $db,
+        private readonly Sequence $sequence
+    )
     {
     }
 
     public function allByOrganization(int $organizationId): array
     {
-        $stmt = $this->pdo->prepare(
-            'SELECT id, invoice_code, period, amount, due_date, status, method, paid_at, created_at
-             FROM invoices
-             WHERE organization_id = :org
-             ORDER BY id DESC'
+        $cursor = $this->db->selectCollection('invoices')->find(
+            ['organization_id' => $organizationId],
+            ['sort' => ['id' => -1]]
         );
-        $stmt->execute(['org' => $organizationId]);
-        return $stmt->fetchAll() ?: [];
+
+        $items = [];
+        foreach ($cursor as $doc) {
+            $row = $doc->getArrayCopy();
+            $items[] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'invoice_code' => (string) ($row['invoice_code'] ?? ''),
+                'period' => (string) ($row['period'] ?? ''),
+                'amount' => (float) ($row['amount'] ?? 0),
+                'due_date' => (string) ($row['due_date'] ?? ''),
+                'status' => (string) ($row['status'] ?? 'Pendente'),
+                'method' => (string) ($row['method'] ?? 'Pix'),
+                'paid_at' => BsonUtil::formatDate($row['paid_at'] ?? null),
+                'created_at' => BsonUtil::formatDate($row['created_at'] ?? null),
+            ];
+        }
+
+        return $items;
     }
 
     public function create(array $payload, int $organizationId): int
     {
-        $stmt = $this->pdo->prepare(
-            'INSERT INTO invoices (invoice_code, period, amount, due_date, status, method, organization_id)
-             VALUES (:invoice_code, :period, :amount, :due_date, :status, :method, :organization_id)'
-        );
-        $stmt->execute([
-            'invoice_code' => $payload['invoice_code'],
-            'period' => $payload['period'],
-            'amount' => $payload['amount'],
-            'due_date' => $payload['due_date'],
-            'status' => $payload['status'] ?? 'Pendente',
-            'method' => $payload['method'] ?? 'Pix',
+        $id = $this->sequence->next('invoices');
+        $now = new UTCDateTime();
+        $this->db->selectCollection('invoices')->insertOne([
+            'id' => $id,
+            'invoice_code' => (string) $payload['invoice_code'],
+            'period' => (string) $payload['period'],
+            'amount' => (float) $payload['amount'],
+            'due_date' => (string) $payload['due_date'],
+            'status' => (string) ($payload['status'] ?? 'Pendente'),
+            'method' => (string) ($payload['method'] ?? 'Pix'),
             'organization_id' => $organizationId,
+            'created_at' => $now,
+            'updated_at' => $now,
         ]);
 
-        return (int) $this->pdo->lastInsertId();
+        return $id;
     }
 }

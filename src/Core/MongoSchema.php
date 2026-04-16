@@ -18,10 +18,14 @@ final class MongoSchema
             return;
         }
 
+        $db->selectCollection('users')->createIndex(['id' => 1], ['unique' => true]);
         $db->selectCollection('users')->createIndex(['email' => 1], ['unique' => true]);
+        $db->selectCollection('clients')->createIndex(['id' => 1], ['unique' => true]);
         $db->selectCollection('clients')->createIndex(['organization_id' => 1]);
+        $db->selectCollection('tasks')->createIndex(['id' => 1], ['unique' => true]);
         $db->selectCollection('tasks')->createIndex(['organization_id' => 1]);
         $db->selectCollection('tasks')->createIndex(['owner_id' => 1]);
+        $db->selectCollection('invoices')->createIndex(['id' => 1], ['unique' => true]);
         $db->selectCollection('invoices')->createIndex(['organization_id' => 1]);
         $db->selectCollection('invoices')->createIndex(['invoice_code' => 1], ['unique' => true]);
 

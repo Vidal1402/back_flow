@@ -1,29 +1,29 @@
-# PHP MVP API
+# PHP MVP API (MongoDB)
 
-Backend MVP em PHP nativo com padrão em camadas:
+Backend em PHP nativo com:
 
 - Routes
 - Controllers
 - Repositories
 - Middleware JWT
-- Migrações SQL
+- MongoDB (colecoes e indices)
 
-## Executar local (Supabase Postgres)
+## Executar local
 
 1. Copie `.env.example` para `.env`.
-2. Configure `DB_DSN`, `DB_USER` e `DB_PASS` com os dados do seu projeto Supabase.
-3. Rode `composer install` (opcional se quiser autoload PSR-4 via Composer).
+2. Configure `MONGODB_URI`, `MONGODB_DATABASE`, `APP_KEY` e `JWT_TTL`.
+3. Rode `composer install`.
 4. Rode `php -S localhost:8000 -t public`.
 
-### Exemplo de conexao no `.env`
+### Exemplo de `.env`
 
-`DB_DSN=pgsql:host=db.<project-ref>.supabase.co;port=5432;dbname=postgres;sslmode=require`
+`MONGODB_URI=mongodb+srv://usuario:senha@cluster0.xxxxx.mongodb.net/united_flow?retryWrites=true&w=majority`
 
-`DB_USER=postgres`
+`MONGODB_DATABASE=united_flow`
 
-`DB_PASS=<senha-do-banco>`
+`APP_KEY=troque-esta-chave-por-uma-chave-segura`
 
-Obs.: esta API usa Supabase como banco Postgres (PDO), com JWT proprio no backend (nao usa Supabase Auth).
+`JWT_TTL=3600`
 
 ## Endpoints principais
 
@@ -37,6 +37,7 @@ Obs.: esta API usa Supabase como banco Postgres (PDO), com JWT proprio no backen
 - `POST /api/tasks` (JWT)
 - `PATCH /api/tasks/{id}/status` (JWT)
 - `GET /api/invoices` (JWT)
+- `POST /api/invoices` (JWT admin)
 
 ### Criacao de usuarios
 
@@ -46,38 +47,28 @@ Obs.: esta API usa Supabase como banco Postgres (PDO), com JWT proprio no backen
 ## Estrutura
 
 - `public/index.php` entrypoint web.
-- `src/Core` utilitários de framework.
+- `src/Core` utilitarios de framework.
 - `src/Controllers` handlers HTTP.
-- `src/Repositories` acesso a dados.
-- `src/Middleware` proteção de rotas.
-- `database/migrations` schema SQL versionado.
+- `src/Repositories` acesso a dados MongoDB.
+- `src/Middleware` protecao de rotas.
 
-## Deploy no Railway (Railpack)
+## Deploy no Railway (Dockerfile)
 
-O Railpack **nao oferece PHP 8.1** — use `composer.json` com `"php": "^8.2"` ou superior.
+Variaveis minimas:
 
-### Document root
+- `MONGODB_URI`
+- `MONGODB_DATABASE` (opcional se ja estiver na URI)
+- `APP_KEY`
+- `JWT_TTL`
+- `CORS_ORIGINS` (ex.: `http://localhost:8082`)
 
-Em muitos deploys o document root e **`/app`** (raiz do repo), nao `/app/public`. Por isso existe **`index.php` na raiz** redirecionando para `public/index.php`.
+Seed inicial opcional de admin:
 
-Opcionalmente no Railway voce pode definir:
-
-- `RAILPACK_PHP_ROOT_DIR=/app/public`
-
-Se definir isso, o Caddy usa `public/` diretamente; o `index.php` da raiz continua inofensivo.
-
-Configure tambem `APP_KEY`, `JWT_TTL`, `DB_DSN`, `DB_USER`, `DB_PASS` nas variaveis do Railway.
+- `SEED_ADMIN_NAME`
+- `SEED_ADMIN_EMAIL`
+- `SEED_ADMIN_PASSWORD`
 
 ### CORS (front em outro dominio / localhost)
 
-O navegador envia primeiro uma requisicao `OPTIONS` (preflight) para rotas como `POST /api/auth/login`.
-Essa resposta **precisa** incluir `Access-Control-Allow-Origin` **antes** de conectar ao banco; por isso o `OPTIONS` e tratado no inicio de `public/index.php`.
-
-- Se `CORS_ORIGINS` estiver **vazio**, a API usa `Access-Control-Allow-Origin: *` (adequado quando o JWT vai no header `Authorization`, sem cookies).
-- Para restringir, defina por exemplo: `CORS_ORIGINS=http://localhost:8082,https://meu-app.vercel.app`
-
-### "Application failed to respond" no Railway
-
-O health check costuma bater em `/` ou `/api/health`. Antes, o codigo conectava ao Postgres **antes** de qualquer resposta; se `DB_*` estivesse errado, ate o health falhava.
-
-Agora `GET /`, `GET /health` e `GET /api/health` respondem **sem banco**. Se a raiz voltar a responder mas as rotas `/api/*` derem erro, o problema esta nas variaveis `DB_*` ou na rede ate o Supabase.
+O navegador envia um `OPTIONS` (preflight) antes de chamadas como `POST /api/auth/login`.
+A API responde CORS no inicio de `public/index.php`, antes de tocar no banco.

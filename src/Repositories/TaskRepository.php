@@ -13,85 +13,72 @@ final class TaskRepository
 {
     public function __construct(
         private readonly MongoDatabase $db,
-        private readonly Sequence $sequence,
-    ) {
+        private readonly Sequence $sequence
+    )
+    {
     }
 
     public function allByOrganization(int $organizationId): array
     {
-        $tasks = $this->db->selectCollection('tasks')->find(
+        $cursor = $this->db->selectCollection('tasks')->find(
             ['organization_id' => $organizationId],
-            ['sort' => ['_id' => -1]]
+            ['sort' => ['id' => -1]]
         );
 
         $rows = [];
         $ownerIds = [];
-        foreach ($tasks as $doc) {
-            $row = $this->normalizeAssoc($doc);
+        foreach ($cursor as $doc) {
+            $row = $doc->getArrayCopy();
             $rows[] = $row;
-            if (!empty($row['owner_id'])) {
-                $ownerIds[(int) $row['owner_id']] = true;
+            $ownerId = (int) ($row['owner_id'] ?? 0);
+            if ($ownerId > 0) {
+                $ownerIds[] = $ownerId;
             }
         }
 
-        $ownerNames = $this->loadOwnerNames(array_keys($ownerIds));
+        $ownerNamesById = [];
+        if ($ownerIds !== []) {
+            $usersCursor = $this->db->selectCollection('users')->find(
+                ['id' => ['$in' => array_values(array_unique($ownerIds))]],
+                ['projection' => ['id' => 1, 'name' => 1]]
+            );
+            foreach ($usersCursor as $doc) {
+                $user = $doc->getArrayCopy();
+                $ownerNamesById[(int) ($user['id'] ?? 0)] = (string) ($user['name'] ?? '');
+            }
+        }
 
-        $out = [];
+        $items = [];
         foreach ($rows as $row) {
-            $oid = isset($row['owner_id']) ? (int) $row['owner_id'] : null;
-            $out[] = [
-                'id' => (int) $row['_id'],
-                'title' => (string) $row['title'],
-                'type' => (string) $row['type'],
-                'priority' => (string) $row['priority'],
-                'due_date' => $row['due_date'] !== null ? (string) $row['due_date'] : null,
-                'status' => (string) $row['status'],
-                'owner_id' => $oid,
-                'owner_name' => $oid !== null ? ($ownerNames[$oid] ?? null) : null,
-                'created_at' => BsonUtil::formatDate($row['created_at'] ?? null) ?? '',
-                'updated_at' => BsonUtil::formatDate($row['updated_at'] ?? null) ?? '',
+            $ownerId = (int) ($row['owner_id'] ?? 0);
+            $items[] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'title' => (string) ($row['title'] ?? ''),
+                'type' => (string) ($row['type'] ?? 'Outros'),
+                'priority' => (string) ($row['priority'] ?? 'Média'),
+                'due_date' => $row['due_date'] ?? null,
+                'status' => (string) ($row['status'] ?? 'solicitacoes'),
+                'owner_id' => $ownerId,
+                'owner_name' => $ownerNamesById[$ownerId] ?? null,
+                'created_at' => BsonUtil::formatDate($row['created_at'] ?? null),
+                'updated_at' => BsonUtil::formatDate($row['updated_at'] ?? null),
             ];
         }
 
-        return $out;
-    }
-
-    /**
-     * @param list<int> $ownerIds
-     * @return array<int, string>
-     */
-    private function loadOwnerNames(array $ownerIds): array
-    {
-        if ($ownerIds === []) {
-            return [];
-        }
-
-        $cursor = $this->db->selectCollection('users')->find(
-            ['_id' => ['$in' => $ownerIds]],
-            ['projection' => ['name' => 1]]
-        );
-
-        $names = [];
-        foreach ($cursor as $doc) {
-            $doc = $this->normalizeAssoc($doc);
-            $names[(int) $doc['_id']] = (string) ($doc['name'] ?? '');
-        }
-
-        return $names;
+        return $items;
     }
 
     public function create(array $payload, int $organizationId, int $ownerId): int
     {
         $id = $this->sequence->next('tasks');
         $now = new UTCDateTime();
-
         $this->db->selectCollection('tasks')->insertOne([
-            '_id' => $id,
-            'title' => $payload['title'],
-            'type' => $payload['type'] ?? 'Outros',
-            'priority' => $payload['priority'] ?? 'Média',
+            'id' => $id,
+            'title' => (string) $payload['title'],
+            'type' => (string) ($payload['type'] ?? 'Outros'),
+            'priority' => (string) ($payload['priority'] ?? 'Média'),
             'due_date' => $payload['due_date'] ?? null,
-            'status' => $payload['status'] ?? 'solicitacoes',
+            'status' => (string) ($payload['status'] ?? 'solicitacoes'),
             'owner_id' => (int) ($payload['owner_id'] ?? $ownerId),
             'organization_id' => $organizationId,
             'created_at' => $now,
@@ -104,32 +91,10 @@ final class TaskRepository
     public function updateStatus(int $taskId, string $status, int $organizationId): bool
     {
         $result = $this->db->selectCollection('tasks')->updateOne(
-            [
-                '_id' => $taskId,
-                'organization_id' => $organizationId,
-            ],
-            [
-                '$set' => [
-                    'status' => $status,
-                    'updated_at' => new UTCDateTime(),
-                ],
-            ]
+            ['id' => $taskId, 'organization_id' => $organizationId],
+            ['$set' => ['status' => $status, 'updated_at' => new UTCDateTime()]]
         );
 
         return $result->getMatchedCount() > 0;
-    }
-
-    /**
-     * @param iterable<mixed, mixed> $doc
-     * @return array<string, mixed>
-     */
-    private function normalizeAssoc(iterable $doc): array
-    {
-        $out = [];
-        foreach ($doc as $k => $v) {
-            $out[(string) $k] = $v;
-        }
-
-        return $out;
     }
 }

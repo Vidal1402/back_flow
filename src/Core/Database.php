@@ -4,68 +4,62 @@ declare(strict_types=1);
 
 namespace App\Core;
 
-use MongoDB\Client;
-use MongoDB\Database as MongoDatabase;
-use Throwable;
+use PDO;
+use PDOException;
 
 final class Database
 {
-    private static ?Client $client = null;
+    private static ?PDO $pdo = null;
 
-    private static ?MongoDatabase $db = null;
-
-    public static function client(): Client
+    public static function connection(): PDO
     {
-        if (self::$client !== null) {
-            return self::$client;
+        if (self::$pdo !== null) {
+            return self::$pdo;
         }
 
-        $uri = Env::get('MONGODB_URI', '');
-        if ($uri === '') {
+        $dsn = trim((string) (Env::get('DB_DSN') ?? ''));
+        $user = Env::get('DB_USER', '') ?: null;
+        $pass = Env::get('DB_PASS', '') ?: null;
+
+        if ($dsn === '') {
             Response::json([
-                'error' => 'config_error',
-                'message' => 'MONGODB_URI não configurada',
+                'error' => 'db_config_error',
+                'message' => 'DB_DSN não configurado no ambiente.',
             ], 500);
         }
 
+        if (str_starts_with($dsn, 'sqlite:')) {
+            $sqlitePath = substr($dsn, 7);
+            if ($sqlitePath !== '') {
+                $absolutePath = self::toAbsolutePath($sqlitePath);
+                $dir = dirname($absolutePath);
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0777, true);
+                }
+                $dsn = 'sqlite:' . $absolutePath;
+            }
+        }
+
         try {
-            self::$client = new Client($uri, [
-                // Evita esperas longas (10s+) quando há problema de rede/DNS com Atlas.
-                'connectTimeoutMS' => 3000,
-                'serverSelectionTimeoutMS' => 3000,
+            self::$pdo = new PDO($dsn, $user, $pass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ]);
-        } catch (Throwable $e) {
+        } catch (PDOException $e) {
             Response::json([
                 'error' => 'db_connection_error',
                 'message' => $e->getMessage(),
             ], 500);
         }
 
-        return self::$client;
+        return self::$pdo;
     }
 
-    public static function database(): MongoDatabase
+    private static function toAbsolutePath(string $path): string
     {
-        if (self::$db !== null) {
-            return self::$db;
+        if (preg_match('/^[A-Za-z]:[\\\\\\/]/', $path) === 1 || str_starts_with($path, '/')) {
+            return $path;
         }
-
-        $name = Env::get('MONGODB_DATABASE', '');
-        if ($name === '') {
-            $name = self::databaseNameFromUri((string) Env::get('MONGODB_URI', '')) ?? 'united_flow';
-        }
-
-        self::$db = self::client()->selectDatabase($name);
-        return self::$db;
-    }
-
-    private static function databaseNameFromUri(string $uri): ?string
-    {
-        $path = parse_url($uri, PHP_URL_PATH);
-        if (!is_string($path) || $path === '' || $path === '/') {
-            return null;
-        }
-
-        return trim($path, '/');
+        return dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . $path;
     }
 }

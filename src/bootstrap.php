@@ -7,12 +7,13 @@ use App\Controllers\ClientController;
 use App\Controllers\HealthController;
 use App\Controllers\InvoiceController;
 use App\Controllers\TaskController;
-use App\Core\Database;
 use App\Core\Env;
-use App\Core\Migrator;
+use App\Core\MongoConnection;
+use App\Core\MongoSchema;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Router;
+use App\Core\Sequence;
 use App\Middleware\AuthMiddleware;
 use App\Repositories\ClientRepository;
 use App\Repositories\InvoiceRepository;
@@ -21,43 +22,28 @@ use App\Repositories\UserRepository;
 
 Env::load(dirname(__DIR__) . '/.env');
 
-if (method_exists(Database::class, 'connection')) {
-    /** @var \PDO $pdo */
-    $pdo = Database::connection();
-} elseif (method_exists(Database::class, 'getConnection')) {
-    /** @var \PDO $pdo */
-    $pdo = Database::getConnection();
-} elseif (method_exists(Database::class, 'connect')) {
-    /** @var \PDO $pdo */
-    $pdo = Database::connect();
-} elseif (method_exists(Database::class, 'pdo')) {
-    /** @var \PDO $pdo */
-    $pdo = Database::pdo();
-} else {
-    // Fallback para manter compatibilidade com versões antigas/alternativas da classe Database.
-    $dsn = Env::get('DB_DSN', 'pgsql:host=localhost;port=5432;dbname=postgres');
-    $user = Env::get('DB_USER', '') ?: null;
-    $pass = Env::get('DB_PASS', '') ?: null;
+$db = MongoConnection::database();
+MongoSchema::ensureIndexes($db);
+$sequence = new Sequence($db);
 
-    try {
-        $pdo = new \PDO((string) $dsn, $user, $pass, [
-            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-        ]);
-    } catch (\PDOException $e) {
-        Response::json([
-            'error' => 'db_connection_error',
-            'message' => $e->getMessage(),
-        ], 500);
-    }
+$users = new UserRepository($db, $sequence);
+$clients = new ClientRepository($db, $sequence);
+$tasks = new TaskRepository($db, $sequence);
+$invoices = new InvoiceRepository($db, $sequence);
+
+// Seed opcional de admin inicial via ambiente (idempotente).
+$seedAdminEmail = mb_strtolower(trim((string) (Env::get('SEED_ADMIN_EMAIL') ?? '')));
+$seedAdminPassword = (string) (Env::get('SEED_ADMIN_PASSWORD') ?? '');
+$seedAdminName = trim((string) (Env::get('SEED_ADMIN_NAME') ?? 'Administrador'));
+if ($seedAdminEmail !== '' && $seedAdminPassword !== '' && $users->findByEmail($seedAdminEmail) === null) {
+    $users->create(
+        $seedAdminName !== '' ? $seedAdminName : 'Administrador',
+        $seedAdminEmail,
+        password_hash($seedAdminPassword, PASSWORD_BCRYPT),
+        'admin',
+        1
+    );
 }
-
-Migrator::run($pdo, dirname(__DIR__) . '/database/migrations');
-
-$users = new UserRepository($pdo);
-$clients = new ClientRepository($pdo);
-$tasks = new TaskRepository($pdo);
-$invoices = new InvoiceRepository($pdo);
 
 $authController = new AuthController($users);
 $clientController = new ClientController($clients);

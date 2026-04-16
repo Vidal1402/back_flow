@@ -4,17 +4,14 @@
 # A imagem composer:2 não tem ext-mongodb; a extensão instala-se no stage seguinte.
 FROM composer:2 AS vendor
 WORKDIR /app
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts \
-    --ignore-platform-req=ext-mongodb
+COPY composer.json ./
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts --ignore-platform-req=ext-mongodb
 
 FROM php:8.4-cli-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     $PHPIZE_DEPS \
-    libpq-dev \
     libssl-dev \
-    && docker-php-ext-install pdo_pgsql pgsql \
     && pecl install mongodb \
     && docker-php-ext-enable mongodb \
     && apt-get purge -y --auto-remove $PHPIZE_DEPS \
