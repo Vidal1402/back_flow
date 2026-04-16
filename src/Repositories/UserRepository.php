@@ -60,6 +60,23 @@ final class UserRepository
         return $id;
     }
 
+    public function updateAccessById(int $id, int $organizationId, string $name, string $passwordHash, string $role): bool
+    {
+        $result = $this->db->selectCollection('users')->updateOne(
+            ['id' => $id, 'organization_id' => $organizationId],
+            [
+                '$set' => [
+                    'name' => $name,
+                    'password_hash' => $passwordHash,
+                    'role' => $role,
+                    'updated_at' => new UTCDateTime(),
+                ],
+            ]
+        );
+
+        return $result->getMatchedCount() > 0;
+    }
+
     private function ensureNumericId(array $doc): array
     {
         $currentId = (int) ($doc['id'] ?? 0);

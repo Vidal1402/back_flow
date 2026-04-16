@@ -71,6 +71,9 @@ $router->add('POST', '/api/admin/users', fn(Request $request, array $params, arr
 
 $router->add('GET', '/api/clients', fn(Request $request, array $params, array $context) => $clientController->index($context), [$authMiddleware]);
 $router->add('POST', '/api/clients', fn(Request $request, array $params, array $context) => $clientController->store($request, $context), [$authMiddleware, $adminOnly]);
+$router->add('GET', '/api/clients/{id}', fn(Request $request, array $params, array $context) => $clientController->show($params, $context), [$authMiddleware]);
+$router->add('PATCH', '/api/clients/{id}', fn(Request $request, array $params, array $context) => $clientController->update($request, $params, $context), [$authMiddleware, $adminOnly]);
+$router->add('DELETE', '/api/clients/{id}', fn(Request $request, array $params, array $context) => $clientController->destroy($params, $context), [$authMiddleware, $adminOnly]);
 
 $router->add('GET', '/api/tasks', fn(Request $request, array $params, array $context) => $taskController->index($context), [$authMiddleware]);
 $router->add('POST', '/api/tasks', fn(Request $request, array $params, array $context) => $taskController->store($request, $context), [$authMiddleware]);

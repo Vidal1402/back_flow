@@ -27,12 +27,15 @@ final class AuthController
     public function adminCreateUser(Request $request, array $context): void
     {
         $organizationId = (int) ($context['user']['organization_id'] ?? 1);
+        $email = trim((string) ($request->body['email'] ?? ''));
+        $existing = $email !== '' ? $this->users->findByEmail($email) : null;
         $user = $this->createUserFromPayload($request, $organizationId);
+        $wasExisting = $existing !== null && (int) ($existing['organization_id'] ?? 0) === $organizationId;
 
         Response::json([
-            'message' => 'Usuário criado por admin',
+            'message' => $wasExisting ? 'Acesso atualizado por admin' : 'Usuário criado por admin',
             'user' => $user,
-        ], 201);
+        ], $wasExisting ? 200 : 201);
     }
 
     public function login(Request $request): void
@@ -92,6 +95,7 @@ final class AuthController
         $email = trim((string) ($request->body['email'] ?? ''));
         $password = (string) ($request->body['password'] ?? '');
         $role = (string) ($request->body['role'] ?? 'colaborador');
+        $resetIfExists = (bool) ($request->body['reset_if_exists'] ?? false);
 
         if ($name === '' || $email === '' || $password === '') {
             Response::json(['error' => 'validation_error', 'message' => 'name, email e password são obrigatórios'], 422);
@@ -105,11 +109,30 @@ final class AuthController
             Response::json(['error' => 'validation_error', 'message' => 'role deve ser admin, colaborador ou cliente'], 422);
         }
 
-        if ($this->users->findByEmail($email)) {
-            Response::json(['error' => 'conflict', 'message' => 'Email já cadastrado'], 409);
+        $hash = password_hash($password, PASSWORD_BCRYPT);
+        $existing = $this->users->findByEmail($email);
+        if ($existing) {
+            if ((int) ($existing['organization_id'] ?? 0) !== $organizationId) {
+                Response::json(['error' => 'conflict', 'message' => 'Email já está em uso em outra organização'], 409);
+            }
+
+            if (!$resetIfExists) {
+                Response::json(['error' => 'conflict', 'message' => 'Email já cadastrado'], 409);
+            }
+
+            $updated = $this->users->updateAccessById((int) $existing['id'], $organizationId, $name, $hash, $role);
+            if (!$updated) {
+                Response::json(['error' => 'server_error', 'message' => 'Falha ao atualizar usuário existente'], 500);
+            }
+
+            $user = $this->users->findById((int) $existing['id']);
+            if (!$user) {
+                Response::json(['error' => 'server_error', 'message' => 'Falha ao carregar usuário atualizado'], 500);
+            }
+
+            return $user;
         }
 
-        $hash = password_hash($password, PASSWORD_BCRYPT);
         $id = $this->users->create($name, $email, $hash, $role, $organizationId);
         $user = $this->users->findById($id);
 

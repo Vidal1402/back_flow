@@ -28,18 +28,7 @@ final class ClientRepository
         $items = [];
         foreach ($cursor as $doc) {
             $row = $doc->getArrayCopy();
-            $items[] = [
-                'id' => (int) ($row['id'] ?? 0),
-                'name' => (string) ($row['name'] ?? ''),
-                'empresa' => (string) ($row['empresa'] ?? ''),
-                'email' => (string) ($row['email'] ?? ''),
-                'telefone' => $row['telefone'] ?? null,
-                'plano' => (string) ($row['plano'] ?? 'Growth'),
-                'valor' => (float) ($row['valor'] ?? 0),
-                'status' => (string) ($row['status'] ?? 'ativo'),
-                'organization_id' => (int) ($row['organization_id'] ?? 1),
-                'created_at' => BsonUtil::formatDate($row['created_at'] ?? null),
-            ];
+            $items[] = $this->mapClientRow($row);
         }
 
         return $items;
@@ -64,5 +53,83 @@ final class ClientRepository
         ]);
 
         return $id;
+    }
+
+    public function findByOrganizationAndId(int $organizationId, int $id): ?array
+    {
+        $doc = $this->db->selectCollection('clients')->findOne([
+            'organization_id' => $organizationId,
+            'id' => $id,
+        ]);
+        if (!$doc) {
+            return null;
+        }
+        return $this->mapClientRow($doc->getArrayCopy());
+    }
+
+    /**
+     * @param array{name?:string, empresa?:string, email?:string, telefone?:string|null, plano?:string, valor?:float|int, status?:string} $payload
+     */
+    public function updateForOrganization(int $organizationId, int $id, array $payload): bool
+    {
+        $set = [];
+        if (array_key_exists('name', $payload)) {
+            $set['name'] = (string) $payload['name'];
+        }
+        if (array_key_exists('empresa', $payload)) {
+            $set['empresa'] = (string) $payload['empresa'];
+        }
+        if (array_key_exists('email', $payload)) {
+            $set['email'] = mb_strtolower(trim((string) $payload['email']));
+        }
+        if (array_key_exists('telefone', $payload)) {
+            $set['telefone'] = $payload['telefone'] === '' ? null : ($payload['telefone'] ?? null);
+        }
+        if (array_key_exists('plano', $payload)) {
+            $set['plano'] = (string) $payload['plano'];
+        }
+        if (array_key_exists('valor', $payload)) {
+            $set['valor'] = (float) $payload['valor'];
+        }
+        if (array_key_exists('status', $payload)) {
+            $set['status'] = (string) $payload['status'];
+        }
+
+        if ($set === []) {
+            return false;
+        }
+
+        $set['updated_at'] = new UTCDateTime();
+        $result = $this->db->selectCollection('clients')->updateOne(
+            ['organization_id' => $organizationId, 'id' => $id],
+            ['$set' => $set]
+        );
+
+        return $result->getMatchedCount() > 0;
+    }
+
+    public function deleteForOrganization(int $organizationId, int $id): bool
+    {
+        $result = $this->db->selectCollection('clients')->deleteOne([
+            'organization_id' => $organizationId,
+            'id' => $id,
+        ]);
+        return $result->getDeletedCount() > 0;
+    }
+
+    private function mapClientRow(array $row): array
+    {
+        return [
+            'id' => (int) ($row['id'] ?? 0),
+            'name' => (string) ($row['name'] ?? ''),
+            'empresa' => (string) ($row['empresa'] ?? ''),
+            'email' => (string) ($row['email'] ?? ''),
+            'telefone' => $row['telefone'] ?? null,
+            'plano' => (string) ($row['plano'] ?? 'Growth'),
+            'valor' => (float) ($row['valor'] ?? 0),
+            'status' => (string) ($row['status'] ?? 'ativo'),
+            'organization_id' => (int) ($row['organization_id'] ?? 1),
+            'created_at' => BsonUtil::formatDate($row['created_at'] ?? null),
+        ];
     }
 }

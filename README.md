@@ -36,6 +36,9 @@ Obs.: este projeto usa a extensao `ext-mongodb` (PECL) + a biblioteca `mongodb/m
 - `POST /api/admin/users` (JWT admin)
 - `GET /api/clients` (JWT)
 - `POST /api/clients` (JWT admin)
+- `GET /api/clients/{id}` (JWT)
+- `PATCH /api/clients/{id}` (JWT admin)
+- `DELETE /api/clients/{id}` (JWT admin)
 - `GET /api/tasks` (JWT)
 - `POST /api/tasks` (JWT)
 - `PATCH /api/tasks/{id}/status` (JWT)
@@ -46,6 +49,7 @@ Obs.: este projeto usa a extensao `ext-mongodb` (PECL) + a biblioteca `mongodb/m
 
 - `POST /api/auth/register` retorna `403` (registro publico desativado).
 - Novos usuarios devem ser criados por admin em `POST /api/admin/users`.
+- Para redefinir senha de um usuario ja existente, envie `reset_if_exists: true` no body de `POST /api/admin/users`.
 
 ## Estrutura
 
