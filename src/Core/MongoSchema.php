@@ -76,4 +76,24 @@ final class MongoSchema
             ['upsert' => true]
         );
     }
+
+    public static function ensureQueryPerformanceIndexes(MongoDatabase $db): void
+    {
+        $meta = $db->selectCollection('_meta');
+        $key = 'indexes_perf_v1';
+        if ($meta->findOne(['_id' => $key]) !== null) {
+            return;
+        }
+
+        $db->selectCollection('clients')->createIndex(['organization_id' => 1, 'id' => -1]);
+        $db->selectCollection('tasks')->createIndex(['organization_id' => 1, 'id' => -1]);
+        $db->selectCollection('invoices')->createIndex(['organization_id' => 1, 'id' => -1]);
+        $db->selectCollection('users')->createIndex(['organization_id' => 1, 'id' => 1]);
+
+        $meta->updateOne(
+            ['_id' => $key],
+            ['$set' => ['initialized_at' => new UTCDateTime()]],
+            ['upsert' => true]
+        );
+    }
 }

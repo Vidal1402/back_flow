@@ -17,11 +17,27 @@ final class ClientReportRepository
     ) {
     }
 
-    public function allByOrganization(int $organizationId): array
+    public function allByOrganization(int $organizationId, int $limit = 200): array
     {
+        $safeLimit = max(1, min($limit, 500));
         $cursor = $this->db->selectCollection('client_reports')->find(
             ['organization_id' => $organizationId],
-            ['sort' => ['created_at' => -1]]
+            [
+                'sort' => ['created_at' => -1],
+                'limit' => $safeLimit,
+                'projection' => [
+                    'id' => 1,
+                    'organization_id' => 1,
+                    'client_id' => 1,
+                    'title' => 1,
+                    'url' => 1,
+                    'summary' => 1,
+                    'status' => 1,
+                    'published_at' => 1,
+                    'created_at' => 1,
+                    'updated_at' => 1,
+                ],
+            ]
         );
 
         $items = [];
@@ -32,11 +48,27 @@ final class ClientReportRepository
         return $items;
     }
 
-    public function allByOrganizationAndClient(int $organizationId, int $clientId): array
+    public function allByOrganizationAndClient(int $organizationId, int $clientId, int $limit = 200): array
     {
+        $safeLimit = max(1, min($limit, 500));
         $cursor = $this->db->selectCollection('client_reports')->find(
             ['organization_id' => $organizationId, 'client_id' => $clientId],
-            ['sort' => ['created_at' => -1]]
+            [
+                'sort' => ['created_at' => -1],
+                'limit' => $safeLimit,
+                'projection' => [
+                    'id' => 1,
+                    'organization_id' => 1,
+                    'client_id' => 1,
+                    'title' => 1,
+                    'url' => 1,
+                    'summary' => 1,
+                    'status' => 1,
+                    'published_at' => 1,
+                    'created_at' => 1,
+                    'updated_at' => 1,
+                ],
+            ]
         );
 
         $items = [];

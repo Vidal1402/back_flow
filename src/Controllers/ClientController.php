@@ -14,10 +14,11 @@ final class ClientController
     {
     }
 
-    public function index(array $context): void
+    public function index(Request $request, array $context): void
     {
         $org = (int) $context['user']['organization_id'];
-        $items = $this->clients->allByOrganization($org);
+        $limit = (int) ($request->query['limit'] ?? 300);
+        $items = $this->clients->allByOrganization($org, $limit);
         Response::json(['data' => $items]);
     }
 

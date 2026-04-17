@@ -65,6 +65,8 @@ final class AuthController
             'sub' => (int) $user['id'],
             'role' => $user['role'],
             'org' => (int) $user['organization_id'],
+            'name' => (string) ($user['name'] ?? ''),
+            'email' => (string) ($user['email'] ?? ''),
             'iat' => time(),
             'exp' => time() + $ttl,
         ];

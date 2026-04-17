@@ -21,6 +21,7 @@ final class MarketingMetricController
     {
         $org = (int) $context['user']['organization_id'];
         $role = (string) ($context['user']['role'] ?? '');
+        $limit = (int) ($request->query['limit'] ?? 100);
 
         if ($role === 'cliente') {
             $uid = (int) ($context['user']['id'] ?? 0);
@@ -33,13 +34,13 @@ final class MarketingMetricController
                 return;
             }
 
-            $items = $this->metrics->allByOrganization($org, (int) $client['id']);
+            $items = $this->metrics->allByOrganization($org, (int) $client['id'], $limit);
             Response::json(['data' => $items]);
             return;
         }
 
         $clientId = (int) ($request->query['client_id'] ?? 0);
-        $items = $this->metrics->allByOrganization($org, $clientId > 0 ? $clientId : null);
+        $items = $this->metrics->allByOrganization($org, $clientId > 0 ? $clientId : null, $limit);
         Response::json(['data' => $items]);
     }
 

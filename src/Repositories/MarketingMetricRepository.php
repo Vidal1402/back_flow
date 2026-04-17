@@ -8,6 +8,7 @@ use App\Core\BsonUtil;
 use App\Core\Sequence;
 use MongoDB\BSON\UTCDateTime;
 use MongoDB\Database as MongoDatabase;
+use MongoDB\Operation\FindOneAndUpdate;
 
 final class MarketingMetricRepository
 {
@@ -17,8 +18,9 @@ final class MarketingMetricRepository
     ) {
     }
 
-    public function allByOrganization(int $organizationId, ?int $clientId = null): array
+    public function allByOrganization(int $organizationId, ?int $clientId = null, int $limit = 100): array
     {
+        $safeLimit = max(1, min($limit, 500));
         $filter = ['organization_id' => $organizationId];
         if ($clientId !== null && $clientId > 0) {
             $filter['client_id'] = $clientId;
@@ -26,7 +28,18 @@ final class MarketingMetricRepository
 
         $cursor = $this->db->selectCollection('marketing_metrics')->find(
             $filter,
-            ['sort' => ['updated_at' => -1]]
+            [
+                'sort' => ['updated_at' => -1],
+                'limit' => $safeLimit,
+                'projection' => [
+                    'id' => 1,
+                    'organization_id' => 1,
+                    'client_id' => 1,
+                    'payload' => 1,
+                    'created_at' => 1,
+                    'updated_at' => 1,
+                ],
+            ]
         );
 
         $items = [];
@@ -92,22 +105,33 @@ final class MarketingMetricRepository
      */
     public function upsertLatestForClient(int $organizationId, int $clientId, array $payload): array
     {
-        $doc = $this->db->selectCollection('marketing_metrics')->findOne(
+        $now = new UTCDateTime();
+        $candidateId = $this->sequence->next('marketing_metrics');
+        $doc = $this->db->selectCollection('marketing_metrics')->findOneAndUpdate(
             ['organization_id' => $organizationId, 'client_id' => $clientId],
-            ['sort' => ['updated_at' => -1]]
+            [
+                '$set' => [
+                    'payload' => $payload,
+                    'updated_at' => $now,
+                ],
+                '$setOnInsert' => [
+                    'id' => $candidateId,
+                    'organization_id' => $organizationId,
+                    'client_id' => $clientId,
+                    'created_at' => $now,
+                ],
+            ],
+            [
+                'upsert' => true,
+                'returnDocument' => FindOneAndUpdate::RETURN_DOCUMENT_AFTER,
+            ]
         );
 
-        if ($doc !== null) {
-            $row = $doc->getArrayCopy();
-            $id = (int) ($row['id'] ?? 0);
-            if ($id > 0) {
-                $this->updateForOrganization($organizationId, $id, $clientId, $payload);
-                return $this->findByOrganizationAndId($organizationId, $id) ?? [];
-            }
+        if ($doc === null) {
+            return [];
         }
 
-        $id = $this->create($organizationId, $clientId, $payload);
-        return $this->findByOrganizationAndId($organizationId, $id) ?? [];
+        return $this->mapRow($doc->getArrayCopy());
     }
 
     public function deleteForOrganization(int $organizationId, int $id): bool
@@ -126,13 +150,25 @@ final class MarketingMetricRepository
      */
     private function mapRow(array $row): array
     {
-        return [
+        $payload = is_array($row['payload'] ?? null) ? $row['payload'] : [];
+        $base = [
             'id' => (int) ($row['id'] ?? 0),
             'organization_id' => (int) ($row['organization_id'] ?? 0),
             'client_id' => (int) ($row['client_id'] ?? 0),
-            'payload' => is_array($row['payload'] ?? null) ? $row['payload'] : [],
             'created_at' => BsonUtil::formatDate($row['created_at'] ?? null),
             'updated_at' => BsonUtil::formatDate($row['updated_at'] ?? null),
         ];
+
+        // Compatibilidade: alguns frontends antigos esperam métricas no nível raiz.
+        foreach ($payload as $key => $value) {
+            if (is_string($key) && !array_key_exists($key, $base)) {
+                $base[$key] = $value;
+            }
+        }
+
+        // Mantém também o payload bruto para consumidores novos.
+        $base['payload'] = $payload;
+
+        return $base;
     }
 }

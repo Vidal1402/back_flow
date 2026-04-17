@@ -18,11 +18,27 @@ final class ClientRepository
     {
     }
 
-    public function allByOrganization(int $organizationId): array
+    public function allByOrganization(int $organizationId, int $limit = 300): array
     {
+        $safeLimit = max(1, min($limit, 1000));
         $cursor = $this->db->selectCollection('clients')->find(
             ['organization_id' => $organizationId],
-            ['sort' => ['id' => -1]]
+            [
+                'sort' => ['id' => -1],
+                'limit' => $safeLimit,
+                'projection' => [
+                    'id' => 1,
+                    'name' => 1,
+                    'empresa' => 1,
+                    'email' => 1,
+                    'telefone' => 1,
+                    'plano' => 1,
+                    'valor' => 1,
+                    'status' => 1,
+                    'organization_id' => 1,
+                    'created_at' => 1,
+                ],
+            ]
         );
 
         $items = [];
