@@ -8,6 +8,8 @@ use App\Core\BsonUtil;
 use App\Core\Sequence;
 use MongoDB\BSON\UTCDateTime;
 use MongoDB\Database as MongoDatabase;
+use MongoDB\Model\BSONArray;
+use MongoDB\Model\BSONDocument;
 use MongoDB\Operation\FindOneAndUpdate;
 
 final class MarketingMetricRepository
@@ -150,7 +152,7 @@ final class MarketingMetricRepository
      */
     private function mapRow(array $row): array
     {
-        $payload = is_array($row['payload'] ?? null) ? $row['payload'] : [];
+        $payload = $this->toPlainArray($row['payload'] ?? []);
         $normalized = $this->normalizePayload($payload);
         $base = [
             'id' => (int) ($row['id'] ?? 0),
@@ -312,11 +314,12 @@ final class MarketingMetricRepository
                 continue;
             }
             $normalizedKey = $this->normalizeKey($key);
-            if (is_array($value)) {
-                $this->flattenValues($value, $flat);
+            $plain = $this->toPlainValue($value);
+            if (is_array($plain)) {
+                $this->flattenValues($plain, $flat);
                 continue;
             }
-            $flat[$normalizedKey] = $value;
+            $flat[$normalizedKey] = $plain;
         }
     }
 
@@ -330,6 +333,18 @@ final class MarketingMetricRepository
 
     private function toNumber(mixed $value): ?float
     {
+        $plain = $this->toPlainValue($value);
+        if (is_int($plain) || is_float($plain)) {
+            return (float) $plain;
+        }
+        if (is_object($plain) && method_exists($plain, '__toString')) {
+            $plain = (string) $plain;
+        }
+        if (!is_string($plain)) {
+            return null;
+        }
+
+        $value = $plain;
         if (is_int($value) || is_float($value)) {
             return (float) $value;
         }
@@ -364,5 +379,46 @@ final class MarketingMetricRepository
         }
 
         return is_numeric($v) ? (float) $v : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function toPlainArray(mixed $value): array
+    {
+        $plain = $this->toPlainValue($value);
+        if (!is_array($plain)) {
+            return [];
+        }
+
+        // Mantém assinatura array<string,mixed> para o restante do repositório.
+        $out = [];
+        foreach ($plain as $k => $v) {
+            $out[(string) $k] = $v;
+        }
+        return $out;
+    }
+
+    private function toPlainValue(mixed $value): mixed
+    {
+        if ($value instanceof BSONDocument || $value instanceof BSONArray) {
+            return $this->toPlainValue($value->getArrayCopy());
+        }
+
+        if (is_array($value)) {
+            $out = [];
+            foreach ($value as $k => $v) {
+                $out[$k] = $this->toPlainValue($v);
+            }
+            return $out;
+        }
+
+        if (is_object($value) && method_exists($value, 'getArrayCopy')) {
+            /** @var mixed $arr */
+            $arr = $value->getArrayCopy();
+            return $this->toPlainValue($arr);
+        }
+
+        return $value;
     }
 }
