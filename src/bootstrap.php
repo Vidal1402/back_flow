@@ -28,16 +28,14 @@ Env::load(dirname(__DIR__) . '/.env');
 
 $db = MongoConnection::database();
 MongoSchema::ensureIndexes($db);
-MongoSchema::ensureClientReportIndexes($db);
-MongoSchema::ensureMarketingMetricIndexes($db);
 $sequence = new Sequence($db);
 
 $users = new UserRepository($db, $sequence);
 $clients = new ClientRepository($db, $sequence);
-$clientReports = new ClientReportRepository($db, $sequence);
-$marketingMetrics = new MarketingMetricRepository($db, $sequence);
 $tasks = new TaskRepository($db, $sequence);
 $invoices = new InvoiceRepository($db, $sequence);
+$clientReports = new ClientReportRepository($db, $sequence);
+$marketingMetrics = new MarketingMetricRepository($db, $sequence);
 
 // Seed opcional de admin inicial via ambiente (idempotente).
 $seedAdminEmail = mb_strtolower(trim((string) (Env::get('SEED_ADMIN_EMAIL') ?? '')));
@@ -56,9 +54,9 @@ if ($seedAdminEmail !== '' && $seedAdminPassword !== '' && $users->findByEmail($
 $authController = new AuthController($users);
 $clientController = new ClientController($clients);
 $clientReportController = new ClientReportController($clientReports, $clients);
-$marketingMetricController = new MarketingMetricController($marketingMetrics, $clients);
 $taskController = new TaskController($tasks);
 $invoiceController = new InvoiceController($invoices);
+$marketingMetricController = new MarketingMetricController($marketingMetrics, $clients);
 $healthController = new HealthController();
 
 $authMiddleware = new AuthMiddleware($users);
@@ -80,23 +78,11 @@ $router->add('GET', '/api/auth/me', fn(Request $request, array $params, array $c
 $router->add('POST', '/api/admin/users', fn(Request $request, array $params, array $context) => $authController->adminCreateUser($request, $context), [$authMiddleware, $adminOnly]);
 
 $router->add('GET', '/api/clients', fn(Request $request, array $params, array $context) => $clientController->index($context), [$authMiddleware]);
+$router->add('GET', '/api/clients/me', fn(Request $request, array $params, array $context) => $clientController->meForPortal($context), [$authMiddleware]);
 $router->add('POST', '/api/clients', fn(Request $request, array $params, array $context) => $clientController->store($request, $context), [$authMiddleware, $adminOnly]);
 $router->add('GET', '/api/clients/{id}', fn(Request $request, array $params, array $context) => $clientController->show($params, $context), [$authMiddleware]);
 $router->add('PATCH', '/api/clients/{id}', fn(Request $request, array $params, array $context) => $clientController->update($request, $params, $context), [$authMiddleware, $adminOnly]);
 $router->add('DELETE', '/api/clients/{id}', fn(Request $request, array $params, array $context) => $clientController->destroy($params, $context), [$authMiddleware, $adminOnly]);
-
-$router->add('GET', '/api/client-reports', fn(Request $request, array $params, array $context) => $clientReportController->index($context), [$authMiddleware, $adminOnly]);
-$router->add('POST', '/api/client-reports', fn(Request $request, array $params, array $context) => $clientReportController->store($request, $context), [$authMiddleware, $adminOnly]);
-$router->add('GET', '/api/client-reports/{id}', fn(Request $request, array $params, array $context) => $clientReportController->show($params, $context), [$authMiddleware, $adminOnly]);
-$router->add('PATCH', '/api/client-reports/{id}', fn(Request $request, array $params, array $context) => $clientReportController->update($request, $params, $context), [$authMiddleware, $adminOnly]);
-$router->add('DELETE', '/api/client-reports/{id}', fn(Request $request, array $params, array $context) => $clientReportController->destroy($params, $context), [$authMiddleware, $adminOnly]);
-
-$router->add('GET', '/api/marketing-metrics', fn(Request $request, array $params, array $context) => $marketingMetricController->index($request, $context), [$authMiddleware, $adminOnly]);
-$router->add('POST', '/api/marketing-metrics', fn(Request $request, array $params, array $context) => $marketingMetricController->store($request, $context), [$authMiddleware, $adminOnly]);
-$router->add('GET', '/api/marketing-metrics/{id}', fn(Request $request, array $params, array $context) => $marketingMetricController->show($params, $context), [$authMiddleware, $adminOnly]);
-$router->add('PATCH', '/api/marketing-metrics/{id}', fn(Request $request, array $params, array $context) => $marketingMetricController->update($request, $params, $context), [$authMiddleware, $adminOnly]);
-$router->add('PUT', '/api/marketing-metrics/{id}', fn(Request $request, array $params, array $context) => $marketingMetricController->update($request, $params, $context), [$authMiddleware, $adminOnly]);
-$router->add('DELETE', '/api/marketing-metrics/{id}', fn(Request $request, array $params, array $context) => $marketingMetricController->destroy($params, $context), [$authMiddleware, $adminOnly]);
 
 $router->add('GET', '/api/tasks', fn(Request $request, array $params, array $context) => $taskController->index($context), [$authMiddleware]);
 $router->add('POST', '/api/tasks', fn(Request $request, array $params, array $context) => $taskController->store($request, $context), [$authMiddleware]);
@@ -104,5 +90,18 @@ $router->add('PATCH', '/api/tasks/{id}/status', fn(Request $request, array $para
 
 $router->add('GET', '/api/invoices', fn(Request $request, array $params, array $context) => $invoiceController->index($context), [$authMiddleware]);
 $router->add('POST', '/api/invoices', fn(Request $request, array $params, array $context) => $invoiceController->store($request, $context), [$authMiddleware, $adminOnly]);
+
+$router->add('GET', '/api/client-reports', fn(Request $request, array $params, array $context) => $clientReportController->index($context), [$authMiddleware]);
+$router->add('POST', '/api/client-reports', fn(Request $request, array $params, array $context) => $clientReportController->store($request, $context), [$authMiddleware, $adminOnly]);
+$router->add('GET', '/api/client-reports/{id}', fn(Request $request, array $params, array $context) => $clientReportController->show($params, $context), [$authMiddleware, $adminOnly]);
+$router->add('PATCH', '/api/client-reports/{id}', fn(Request $request, array $params, array $context) => $clientReportController->update($request, $params, $context), [$authMiddleware, $adminOnly]);
+$router->add('DELETE', '/api/client-reports/{id}', fn(Request $request, array $params, array $context) => $clientReportController->destroy($params, $context), [$authMiddleware, $adminOnly]);
+
+$router->add('GET', '/api/marketing-metrics', fn(Request $request, array $params, array $context) => $marketingMetricController->index($request, $context), [$authMiddleware]);
+$router->add('POST', '/api/marketing-metrics', fn(Request $request, array $params, array $context) => $marketingMetricController->store($request, $context), [$authMiddleware, $adminOnly]);
+$router->add('GET', '/api/marketing-metrics/{id}', fn(Request $request, array $params, array $context) => $marketingMetricController->show($params, $context), [$authMiddleware, $adminOnly]);
+$router->add('PATCH', '/api/marketing-metrics/{id}', fn(Request $request, array $params, array $context) => $marketingMetricController->update($request, $params, $context), [$authMiddleware, $adminOnly]);
+$router->add('PUT', '/api/marketing-metrics/{id}', fn(Request $request, array $params, array $context) => $marketingMetricController->update($request, $params, $context), [$authMiddleware, $adminOnly]);
+$router->add('DELETE', '/api/marketing-metrics/{id}', fn(Request $request, array $params, array $context) => $marketingMetricController->destroy($params, $context), [$authMiddleware, $adminOnly]);
 
 return $router;

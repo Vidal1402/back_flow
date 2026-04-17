@@ -32,6 +32,21 @@ final class ClientReportRepository
         return $items;
     }
 
+    public function allByOrganizationAndClient(int $organizationId, int $clientId): array
+    {
+        $cursor = $this->db->selectCollection('client_reports')->find(
+            ['organization_id' => $organizationId, 'client_id' => $clientId],
+            ['sort' => ['created_at' => -1]]
+        );
+
+        $items = [];
+        foreach ($cursor as $doc) {
+            $items[] = $this->mapRow($doc->getArrayCopy());
+        }
+
+        return $items;
+    }
+
     public function findByOrganizationAndId(int $organizationId, int $id): ?array
     {
         $doc = $this->db->selectCollection('client_reports')->findOne([

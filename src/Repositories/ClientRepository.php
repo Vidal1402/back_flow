@@ -28,7 +28,6 @@ final class ClientRepository
         $items = [];
         foreach ($cursor as $doc) {
             $row = $doc->getArrayCopy();
-            $row = $this->ensureNumericId($row, $organizationId);
             $items[] = $this->mapClientRow($row);
         }
 
@@ -65,6 +64,38 @@ final class ClientRepository
         if (!$doc) {
             return null;
         }
+        return $this->mapClientRow($doc->getArrayCopy());
+    }
+
+    public function findByUserId(int $userId): ?array
+    {
+        if ($userId <= 0) {
+            return null;
+        }
+
+        $doc = $this->db->selectCollection('clients')->findOne(['user_id' => $userId]);
+        if (!$doc) {
+            return null;
+        }
+
+        return $this->mapClientRow($doc->getArrayCopy());
+    }
+
+    public function findByOrganizationAndEmail(int $organizationId, string $email): ?array
+    {
+        $normalizedEmail = mb_strtolower(trim($email));
+        if ($normalizedEmail === '') {
+            return null;
+        }
+
+        $doc = $this->db->selectCollection('clients')->findOne([
+            'organization_id' => $organizationId,
+            'email' => $normalizedEmail,
+        ]);
+        if (!$doc) {
+            return null;
+        }
+
         return $this->mapClientRow($doc->getArrayCopy());
     }
 
@@ -116,44 +147,6 @@ final class ClientRepository
             'id' => $id,
         ]);
         return $result->getDeletedCount() > 0;
-    }
-
-    /**
-     * Corrige clientes legados sem id numérico na primeira listagem.
-     *
-     * @param array<string, mixed> $row
-     * @return array<string, mixed>
-     */
-    private function ensureNumericId(array $row, int $organizationId): array
-    {
-        $id = (int) ($row['id'] ?? 0);
-        if ($id > 0) {
-            return $row;
-        }
-
-        if (!array_key_exists('_id', $row)) {
-            return $row;
-        }
-
-        $newId = $this->pickNextAvailableId();
-        $this->db->selectCollection('clients')->updateOne(
-            ['_id' => $row['_id'], 'organization_id' => $organizationId],
-            ['$set' => ['id' => $newId, 'updated_at' => new UTCDateTime()]]
-        );
-        $row['id'] = $newId;
-
-        return $row;
-    }
-
-    private function pickNextAvailableId(): int
-    {
-        $collection = $this->db->selectCollection('clients');
-        do {
-            $candidate = $this->sequence->next('clients');
-            $exists = $collection->findOne(['id' => $candidate], ['projection' => ['_id' => 1]]);
-        } while ($exists !== null);
-
-        return $candidate;
     }
 
     private function mapClientRow(array $row): array

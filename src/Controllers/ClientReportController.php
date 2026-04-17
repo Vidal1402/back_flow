@@ -20,6 +20,24 @@ final class ClientReportController
     public function index(array $context): void
     {
         $org = (int) $context['user']['organization_id'];
+        $role = (string) ($context['user']['role'] ?? '');
+
+        if ($role === 'cliente') {
+            $uid = (int) ($context['user']['id'] ?? 0);
+            $email = (string) ($context['user']['email'] ?? '');
+            $client = $this->clients->findByUserId($uid)
+                ?? $this->clients->findByOrganizationAndEmail($org, $email);
+
+            if ($client === null) {
+                Response::json(['data' => []]);
+                return;
+            }
+
+            $items = $this->reports->allByOrganizationAndClient($org, (int) $client['id']);
+            Response::json(['data' => $items]);
+            return;
+        }
+
         $items = $this->reports->allByOrganization($org);
         Response::json(['data' => $items]);
     }

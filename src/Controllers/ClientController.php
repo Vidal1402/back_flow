@@ -21,6 +21,24 @@ final class ClientController
         Response::json(['data' => $items]);
     }
 
+    public function meForPortal(array $context): void
+    {
+        $role = (string) ($context['user']['role'] ?? '');
+        if ($role !== 'cliente') {
+            Response::json(['error' => 'forbidden', 'message' => 'Disponível para usuários com perfil cliente'], 403);
+            return;
+        }
+
+        $org = (int) $context['user']['organization_id'];
+        $uid = (int) ($context['user']['id'] ?? 0);
+        $email = (string) ($context['user']['email'] ?? '');
+
+        $client = $this->clients->findByUserId($uid)
+            ?? $this->clients->findByOrganizationAndEmail($org, $email);
+
+        Response::json(['data' => $client]);
+    }
+
     public function store(Request $request, array $context): void
     {
         $payload = $request->body;

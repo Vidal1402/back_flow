@@ -20,6 +20,24 @@ final class MarketingMetricController
     public function index(Request $request, array $context): void
     {
         $org = (int) $context['user']['organization_id'];
+        $role = (string) ($context['user']['role'] ?? '');
+
+        if ($role === 'cliente') {
+            $uid = (int) ($context['user']['id'] ?? 0);
+            $email = (string) ($context['user']['email'] ?? '');
+            $client = $this->clients->findByUserId($uid)
+                ?? $this->clients->findByOrganizationAndEmail($org, $email);
+
+            if ($client === null) {
+                Response::json(['data' => []]);
+                return;
+            }
+
+            $items = $this->metrics->allByOrganization($org, (int) $client['id']);
+            Response::json(['data' => $items]);
+            return;
+        }
+
         $clientId = (int) ($request->query['client_id'] ?? 0);
         $items = $this->metrics->allByOrganization($org, $clientId > 0 ? $clientId : null);
         Response::json(['data' => $items]);
