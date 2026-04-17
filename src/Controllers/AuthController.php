@@ -8,12 +8,15 @@ use App\Core\Env;
 use App\Core\JWT;
 use App\Core\Request;
 use App\Core\Response;
+use App\Repositories\ClientRepository;
 use App\Repositories\UserRepository;
 
 final class AuthController
 {
-    public function __construct(private readonly UserRepository $users)
-    {
+    public function __construct(
+        private readonly UserRepository $users,
+        private readonly ?ClientRepository $clients = null
+    ) {
     }
 
     public function register(Request $request): void
@@ -30,6 +33,7 @@ final class AuthController
         $email = trim((string) ($request->body['email'] ?? ''));
         $existing = $email !== '' ? $this->users->findByEmail($email) : null;
         $user = $this->createUserFromPayload($request, $organizationId);
+        $this->autoBindClientUser($user);
         $wasExisting = $existing !== null && (int) ($existing['organization_id'] ?? 0) === $organizationId;
 
         Response::json([
@@ -51,6 +55,7 @@ final class AuthController
         if (!$user || !password_verify($password, (string) $user['password_hash'])) {
             Response::json(['error' => 'unauthorized', 'message' => 'Credenciais inválidas'], 401);
         }
+        $this->autoBindClientUser($user);
 
         $appKey = trim((string) Env::get('APP_KEY', ''));
         if ($appKey === '') {
@@ -143,5 +148,29 @@ final class AuthController
         }
 
         return $user;
+    }
+
+    /**
+     * Vincula automaticamente o login de cliente ao cadastro em /clients por e-mail.
+     *
+     * @param array<string, mixed> $user
+     */
+    private function autoBindClientUser(array $user): void
+    {
+        if ($this->clients === null) {
+            return;
+        }
+        if ((string) ($user['role'] ?? '') !== 'cliente') {
+            return;
+        }
+
+        $organizationId = (int) ($user['organization_id'] ?? 0);
+        $userId = (int) ($user['id'] ?? 0);
+        $email = (string) ($user['email'] ?? '');
+        if ($organizationId <= 0 || $userId <= 0 || trim($email) === '') {
+            return;
+        }
+
+        $this->clients->bindUserByOrganizationAndEmail($organizationId, $email, $userId);
     }
 }

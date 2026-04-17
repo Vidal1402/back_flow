@@ -115,6 +115,29 @@ final class ClientRepository
         return $this->mapClientRow($doc->getArrayCopy());
     }
 
+    public function bindUserByOrganizationAndEmail(int $organizationId, string $email, int $userId): bool
+    {
+        $normalizedEmail = mb_strtolower(trim($email));
+        if ($organizationId <= 0 || $userId <= 0 || $normalizedEmail === '') {
+            return false;
+        }
+
+        $result = $this->db->selectCollection('clients')->updateOne(
+            [
+                'organization_id' => $organizationId,
+                'email' => $normalizedEmail,
+            ],
+            [
+                '$set' => [
+                    'user_id' => $userId,
+                    'updated_at' => new UTCDateTime(),
+                ],
+            ]
+        );
+
+        return $result->getMatchedCount() > 0;
+    }
+
     /**
      * @param array{name?:string, empresa?:string, email?:string, telefone?:string|null, plano?:string, valor?:float|int, status?:string} $payload
      */

@@ -86,6 +86,8 @@ final class MongoSchema
         }
 
         $db->selectCollection('clients')->createIndex(['organization_id' => 1, 'id' => -1]);
+        $db->selectCollection('clients')->createIndex(['organization_id' => 1, 'email' => 1]);
+        $db->selectCollection('clients')->createIndex(['user_id' => 1]);
         $db->selectCollection('tasks')->createIndex(['organization_id' => 1, 'id' => -1]);
         $db->selectCollection('invoices')->createIndex(['organization_id' => 1, 'id' => -1]);
         $db->selectCollection('users')->createIndex(['organization_id' => 1, 'id' => 1]);
