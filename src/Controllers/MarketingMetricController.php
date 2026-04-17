@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Core\Env;
 use App\Core\Request;
 use App\Core\Response;
 use App\Repositories\ClientRepository;
@@ -22,7 +21,6 @@ final class MarketingMetricController
     {
         $org = (int) $context['user']['organization_id'];
         $role = (string) ($context['user']['role'] ?? '');
-        $limit = (int) ($request->query['limit'] ?? 100);
 
         if ($role === 'cliente') {
             $uid = (int) ($context['user']['id'] ?? 0);
@@ -35,13 +33,15 @@ final class MarketingMetricController
                 return;
             }
 
-            $items = $this->metrics->allByOrganization($org, (int) $client['id'], $limit);
+            $period = trim((string) ($request->query['period'] ?? ''));
+            $items = $this->metrics->allByOrganization($org, (int) $client['id'], $period !== '' ? $period : null);
             Response::json(['data' => $items]);
             return;
         }
 
         $clientId = (int) ($request->query['client_id'] ?? 0);
-        $items = $this->metrics->allByOrganization($org, $clientId > 0 ? $clientId : null, $limit);
+        $period = trim((string) ($request->query['period'] ?? ''));
+        $items = $this->metrics->allByOrganization($org, $clientId > 0 ? $clientId : null, $period !== '' ? $period : null);
         Response::json(['data' => $items]);
     }
 
@@ -60,17 +60,8 @@ final class MarketingMetricController
             return;
         }
 
-        $this->debugStorePayload($org, $clientId, $body);
         $payload = $this->sanitizePayload($body);
-        if (!$this->hasRelevantMetrics($payload)) {
-            Response::json([
-                'error' => 'validation_error',
-                'message' => 'Nenhuma métrica válida foi enviada. Preencha ao menos um valor > 0.',
-            ], 422);
-            return;
-        }
-
-        $saved = $this->metrics->upsertLatestForClient($org, $clientId, $payload);
+        $saved = $this->metrics->upsertForClientAndPeriod($org, $clientId, $payload);
 
         Response::json([
             'message' => 'Métricas salvas',
@@ -155,66 +146,11 @@ final class MarketingMetricController
         unset(
             $body['id'],
             $body['_id'],
-            $body['client_id'],
             $body['organization_id'],
             $body['created_at'],
             $body['updated_at']
         );
 
         return $body;
-    }
-
-    /**
-     * @param array<string, mixed> $payload
-     */
-    private function hasRelevantMetrics(array $payload): bool
-    {
-        foreach ($payload as $value) {
-            if ($this->containsPositiveMetric($value)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function containsPositiveMetric(mixed $value): bool
-    {
-        if (is_numeric($value)) {
-            return (float) $value > 0;
-        }
-
-        if (is_array($value)) {
-            foreach ($value as $nested) {
-                if ($this->containsPositiveMetric($nested)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param array<string, mixed> $body
-     */
-    private function debugStorePayload(int $organizationId, int $clientId, array $body): void
-    {
-        $enabled = filter_var((string) (Env::get('MARKETING_METRICS_DEBUG_LOG', 'false') ?? 'false'), FILTER_VALIDATE_BOOLEAN);
-        if (!$enabled) {
-            return;
-        }
-
-        $summary = [
-            'event' => 'marketing_metrics.store.received',
-            'organization_id' => $organizationId,
-            'client_id' => $clientId,
-            'keys' => array_values(array_filter(array_map(static fn ($k): ?string => is_string($k) ? $k : null, array_keys($body)))),
-            'body' => $body,
-        ];
-        $encoded = json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if (is_string($encoded)) {
-            error_log($encoded);
-        }
     }
 }

@@ -20,12 +20,16 @@ final class MarketingMetricRepository
     ) {
     }
 
-    public function allByOrganization(int $organizationId, ?int $clientId = null, int $limit = 100): array
+    public function allByOrganization(int $organizationId, ?int $clientId = null, ?string $period = null, int $limit = 100): array
     {
         $safeLimit = max(1, min($limit, 500));
         $filter = ['organization_id' => $organizationId];
         if ($clientId !== null && $clientId > 0) {
             $filter['client_id'] = $clientId;
+        }
+        $periodNorm = $this->normalizePeriodLabel($period ?? '');
+        if ($periodNorm !== '') {
+            $filter['period_label_norm'] = $periodNorm;
         }
 
         $cursor = $this->db->selectCollection('marketing_metrics')->find(
@@ -72,12 +76,15 @@ final class MarketingMetricRepository
     {
         $id = $this->sequence->next('marketing_metrics');
         $now = new UTCDateTime();
+        $periodLabel = $this->extractPeriodLabel($payload);
+        $periodNorm = $this->normalizePeriodLabel($periodLabel);
 
         $this->db->selectCollection('marketing_metrics')->insertOne([
             'id' => $id,
             'organization_id' => $organizationId,
             'client_id' => $clientId,
             'payload' => $payload,
+            'period_label_norm' => $periodNorm,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -105,21 +112,28 @@ final class MarketingMetricRepository
     /**
      * @param array<string, mixed> $payload
      */
-    public function upsertLatestForClient(int $organizationId, int $clientId, array $payload): array
+    public function upsertForClientAndPeriod(int $organizationId, int $clientId, array $payload): array
     {
         $now = new UTCDateTime();
         $candidateId = $this->sequence->next('marketing_metrics');
+        $periodLabel = $this->extractPeriodLabel($payload);
+        $periodNorm = $this->normalizePeriodLabel($periodLabel);
+        if ($periodNorm === '') {
+            $periodNorm = 'sem_periodo';
+        }
         $doc = $this->db->selectCollection('marketing_metrics')->findOneAndUpdate(
-            ['organization_id' => $organizationId, 'client_id' => $clientId],
+            ['organization_id' => $organizationId, 'client_id' => $clientId, 'period_label_norm' => $periodNorm],
             [
                 '$set' => [
                     'payload' => $payload,
+                    'period_label_norm' => $periodNorm,
                     'updated_at' => $now,
                 ],
                 '$setOnInsert' => [
                     'id' => $candidateId,
                     'organization_id' => $organizationId,
                     'client_id' => $clientId,
+                    'period_label_norm' => $periodNorm,
                     'created_at' => $now,
                 ],
             ],
@@ -379,6 +393,29 @@ final class MarketingMetricRepository
         }
 
         return is_numeric($v) ? (float) $v : null;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function extractPeriodLabel(array $payload): string
+    {
+        $flat = [];
+        $this->flattenValues($payload, $flat);
+        return $this->readStringByAliases($flat, [
+            'period_label', 'period', 'periodo', 'periodo_label', 'month_label', 'mes_referencia', 'reference_month',
+        ]) ?? '';
+    }
+
+    private function normalizePeriodLabel(string $periodLabel): string
+    {
+        $v = mb_strtolower(trim($periodLabel));
+        if ($v === '') {
+            return '';
+        }
+        $v = preg_replace('/\s+/', '', $v);
+        $v = is_string($v) ? $v : '';
+        return $v;
     }
 
     /**
